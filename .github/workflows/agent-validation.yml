@@ -1,0 +1,27 @@
+name: Agent Validation
+on:
+  workflow_dispatch:
+    inputs:
+      ref_to_test:
+        description: "Existing branch or commit to validate"
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out selected ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref_to_test }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run tests
+        run: |
+          python -m pip install -e '.[dev]'
+          python -m pytest -q
