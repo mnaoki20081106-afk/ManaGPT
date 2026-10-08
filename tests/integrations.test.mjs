@@ -145,22 +145,20 @@ test("coding-mode attachments reach model and selected repository is used in PR 
   const inference=JSON.parse(seen.find(x=>x.url.includes("gpu.example.com")).body);
   assert.match(inference.messages[1].content,/Expected answer to be 2/);
   assert.match(inference.messages[1].content,/error.log/);
-  assert.equal(inference.model,"test-model");
+  assert.equal(inference.model,"huihui-ai/Huihui-Qwen3-Coder-Next-abliterated");
   assert.ok(seen.some(x=>x.url.endsWith("/repos/owner/demo/pulls")&&x.method==="POST"));
   assert.ok(!seen.some(x=>x.url.includes("/repos/owner/other")));
   const pr=JSON.parse(seen.find(x=>x.url.endsWith("/pulls")&&x.method==="POST").body);
   assert.ok(!pr.body.includes("received 1"),"attachment contents must not leak into PR description");
  }finally{globalThis.fetch=original}
 });
-test("coding images use a vision-capable model and multimodal request",async()=>{
- const original=globalThis.fetch;
- let sent;
+test("coding mode never forwards images to an old vision model",async()=>{
+ const original=globalThis.fetch;let inferenceCalls=0;
  const png="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl8R20AAAAASUVORK5CYII=";
- globalThis.fetch=async (url,options={})=>{
+ globalThis.fetch=async (url)=>{
   const u=String(url);
-  if(u.includes("api.groq.com")){
-   sent=JSON.parse(options.body);
-   return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify({edits:[] ,reason:"insufficient context"})}}]}));
+  if(u.includes("groq.com")||u.includes("gpu.example.com")){
+    inferenceCalls++;return new Response("{}");
   }
   const data=u.endsWith("/repos/owner/demo")?{default_branch:"main"}:
    u.endsWith("/git/ref/heads/main")?{object:{sha:"commit-sha"}}:
@@ -171,11 +169,11 @@ test("coding images use a vision-capable model and multimodal request",async()=>
   return new Response(JSON.stringify(data),{status:data.message?404:200});
  };
  try{
-  await assert.rejects(agentAction({GITHUB_TOKEN:"fake",GITHUB_REPOSITORY:"owner/demo",GROQ_API_KEY:"fake",MANAGPT_VISION_MODEL:"vision-test",GROQ_API_KEY:"fake"},{
-   task:"Fix screenshot layout",attachments:[{name:"screenshot.png",kind:"image",mime:"image/png",data:png}]
-  }),/insufficient context/);
-  assert.equal(sent.model,"vision-test");
-  assert.equal(sent.messages[1].content[1].type,"image_url");
-  assert.match(sent.messages[1].content[1].image_url.url,/^data:image\/png;base64,/);
+  await assert.rejects(agentAction({GITHUB_TOKEN:"fake",GITHUB_REPOSITORY:"owner/demo",
+    MANAGPT_INFERENCE_BASE_URL:"https://gpu.example.com/v1",MANAGPT_INFERENCE_API_KEY:"key",
+    GROQ_API_KEY:"old",MANAGPT_VISION_MODEL:"old-vision"},{
+    task:"Fix screenshot layout",attachments:[{name:"screenshot.png",kind:"image",mime:"image/png",data:png}]
+  }),/does not support image inputs/);
+  assert.equal(inferenceCalls,0);
  }finally{globalThis.fetch=original}
 });
