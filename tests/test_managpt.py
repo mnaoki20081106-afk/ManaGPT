@@ -49,7 +49,7 @@ def test_chat_persists_2_messages_and_handoff(world):
         {'role': 'assistant', 'content': 'こんにちは、世界！'},
     ]
     model, messages, thinking = provider.calls[0]
-    assert (model, thinking) == ('qwen3.8:27b', True)
+    assert (model, thinking) == (agent.config.model, True)
     assert 'project X' in messages[0]['content']
     assert agent.handoff(sid)['messages'][-1]['content'] == 'こんにちは、世界！'
 
