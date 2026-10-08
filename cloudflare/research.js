@@ -10,7 +10,7 @@ export const publicSource = x => {
 export const citationIds = answer => [...new Set([...answer.matchAll(/\[(\d+)\]/g)].map(m=>Number(m[1])))];
 export const extractPageText = html => html
  .replace(/<!--[\\s\\S]*?-->/g," ")
- .replace(/<(script|style|noscript|svg|iframe|form|nav|footer|header)\\b[^>]*>[\\s\\S]*?<\\/\\1\\s*>/gi," ")
+ .replace(/<(?:script|style|noscript|svg|iframe|form|nav|footer|header)[^>]*>[\s\S]*?<\/(?:script|style|noscript|svg|iframe|form|nav|footer|header)\s*>/gi," ")
  .replace(/<[^>]+>/g," ")
  .replace(/&nbsp;|&#160;/gi," ")
  .replace(/&amp;/gi,"&").replace(/&lt;/gi,"<").replace(/&gt;/gi,">")
