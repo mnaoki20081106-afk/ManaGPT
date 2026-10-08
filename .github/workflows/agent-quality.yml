@@ -20,6 +20,8 @@ jobs:
           node --check /tmp/managpt-agent.mjs
           node --check /tmp/managpt-repair.mjs
           node --check /tmp/managpt-worker.mjs
+      - name: Agent regression tests
+        run: node --experimental-default-type=module --test tests/agent.test.mjs
       - name: Validate project config
         run: |
           node -e "const c=JSON.parse(require('fs').readFileSync('wrangler.jsonc','utf8'));if(!c.main||!c.d1_databases?.length)process.exit(1)"
