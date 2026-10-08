@@ -1,3 +1,4 @@
+import {agentAction,agentStatus} from "./agent.js";
 // manaGPT Cloudflare Worker: private, serverless, D1-backed chat.
 const headers = {"content-type":"application/json; charset=utf-8","cache-control":"no-store"};
 const json = (data,status=200)=>new Response(JSON.stringify(data),{status,headers});
@@ -8,6 +9,16 @@ export default {
   if(!env.MANAGPT_ACCESS_TOKEN || !env.GROQ_API_KEY || !env.DB) return json({error:"Configure MANAGPT_ACCESS_TOKEN, GROQ_API_KEY and DB first"},503);
   const token=request.headers.get("Authorization")?.replace(/^Bearer /,"");
   if(!token || token!==env.MANAGPT_ACCESS_TOKEN) return json({error:"Unauthorized"},401);
+  if(url.pathname==="/api/agent/run" && request.method==="POST"){
+   try{return json(await agentAction(env,await request.json()))}
+   catch(e){return json({error:String(e.message||e)},400)}
+  }
+  if(url.pathname==="/api/agent/status" && request.method==="GET"){
+   const number=Number(url.searchParams.get("pr"));
+   if(!Number.isSafeInteger(number)||number<1)return json({error:"Invalid PR number"},400);
+   try{return json(await agentStatus(env,number))}
+   catch(e){return json({error:String(e.message||e)},400)}
+  }
   await env.DB.prepare("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT NOT NULL CHECK(role IN (\'user\',\'assistant\')), content TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
   if(url.pathname==="/api/history" && request.method==="GET"){
    const {results}=await env.DB.prepare("SELECT role,content,created_at FROM messages ORDER BY id DESC LIMIT 40").all();
