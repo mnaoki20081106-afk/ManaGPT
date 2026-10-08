@@ -6,24 +6,29 @@ on:
     paths:
       - 'cloudflare/**'
       - 'wrangler.jsonc'
+      - '.github/scripts/cloudflare-preflight.mjs'
       - '.github/workflows/deploy-cloudflare.yml'
 permissions:
   contents: read
+concurrency:
+  group: managpt-cloudflare-production
+  cancel-in-progress: false
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check setup
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check credentials and prepare D1 binding
         env:
-          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          test -n "$CF_TOKEN" || { echo "::error::Add CLOUDFLARE_API_TOKEN to repository secrets"; exit 1; }
-          test -n "$CF_ACCOUNT" || { echo "::error::Add CLOUDFLARE_ACCOUNT_ID to repository secrets"; exit 1; }
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node .github/scripts/cloudflare-preflight.mjs
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy
+          command: deploy --config wrangler.deploy.jsonc
