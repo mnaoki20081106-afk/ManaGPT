@@ -13,7 +13,7 @@ from .store import Store
 HELP = """Commands:
   /help              show commands
   /think             toggle reasoning
-  /model <model>     set chat model (e.g. cooperleong00/Qwen3-8B-Jailbroken)
+  /model <model>     set chat model (e.g. huihui-ai/Huihui-Qwen3-Coder-Next-abliterated)
   /context <text>    set project context
   /role <text>       set assistant role
   /history           print conversation so far
@@ -105,7 +105,7 @@ def run_cli(agent: Agent, sid: str) -> None:
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description="manaGPT: Qwen3-8B-Jailbroken assistant")
+    parser = argparse.ArgumentParser(description="manaGPT: Huihui Qwen3 Coder Next assistant")
     subs = parser.add_subparsers(dest="command")
     subs.add_parser("cli")
     web = subs.add_parser("web", help="launch browser chat (localhost only by default)")
