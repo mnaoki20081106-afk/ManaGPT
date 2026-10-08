@@ -17,9 +17,11 @@ jobs:
           cp cloudflare/agent.js /tmp/managpt-agent.mjs
           cp cloudflare/repair.js /tmp/managpt-repair.mjs
           cp cloudflare/worker.js /tmp/managpt-worker.mjs
+          cp cloudflare/research.js /tmp/managpt-research.mjs
           node --check /tmp/managpt-agent.mjs
           node --check /tmp/managpt-repair.mjs
           node --check /tmp/managpt-worker.mjs
+          node --check /tmp/managpt-research.mjs
       - name: Agent regression tests
         run: node --experimental-default-type=module --test tests/agent.test.mjs
       - name: Validate project config
