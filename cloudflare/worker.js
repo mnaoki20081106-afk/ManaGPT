@@ -39,11 +39,11 @@ export default {
   if(url.pathname==="/api/model" && request.method==="GET")return json(inferenceStatus(env));
   if(url.pathname.startsWith("/api/github/"))return githubSettings(request,env,url);
   if(url.pathname.startsWith("/api/conversations")){
-   if(url.pathname.endsWith("/messages")&&!inferenceReady(env))return json({error:"Configure FEATHERLESS_API_KEY to use Qwen3-8B-Jailbroken, or GROQ_API_KEY to restore previous chat"},503);
+   if(url.pathname.endsWith("/messages")&&!inferenceReady(env))return json({error:"Configure MANAGPT_INFERENCE_BASE_URL and MANAGPT_INFERENCE_API_KEY for Huihui-Qwen3-Coder-Next-abliterated"},503);
    return conversations(request,env,url);
   }
   if(url.pathname==="/api/research" && request.method==="POST"){
-   if(!inferenceReady(env))return json({error:"Configure FEATHERLESS_API_KEY to use Qwen3-8B-Jailbroken, or GROQ_API_KEY to restore previous chat"},503);
+   if(!inferenceReady(env))return json({error:"Configure MANAGPT_INFERENCE_BASE_URL and MANAGPT_INFERENCE_API_KEY for Huihui-Qwen3-Coder-Next-abliterated"},503);
    try{return json(await research(env,await request.json()))}
    catch(e){return json({error:String(e.message||e)},400)}
   }
@@ -67,7 +67,7 @@ export default {
    return json({messages:results.reverse()});
   }
   if(url.pathname==="/api/chat" && request.method==="POST"){
-   if(!inferenceReady(env))return json({error:"Configure FEATHERLESS_API_KEY to use Qwen3-8B-Jailbroken, or GROQ_API_KEY to restore previous chat"},503);
+   if(!inferenceReady(env))return json({error:"Configure MANAGPT_INFERENCE_BASE_URL and MANAGPT_INFERENCE_API_KEY for Huihui-Qwen3-Coder-Next-abliterated"},503);
    let body;try{body=await request.json()}catch{return json({error:"Invalid JSON"},400)}
    const prompt=body.message;
    if(typeof prompt!=="string" || !prompt.trim() || prompt.length>12000)return json({error:"Message must be 1–12000 characters"},400);
