@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {safePath,agentAction,agentStatus} from "../cloudflare/agent.js";
 import {repairFailedPR} from "../cloudflare/repair.js";
 import worker from "../cloudflare/worker.js";
-import {research,citationIds,publicSource,extractPageText,fetchAllowlistedPage} from "../cloudflare/research.js";
+import {research,citationIds,publicSource,extractPageText,fetchPublicPage} from "../cloudflare/research.js";
 
 test("unsafe paths are rejected",()=>{
  for(const p of ["../secret",".env","node_modules/a.js",".github/workflows/evil.yml","/root/x"]){
@@ -98,7 +98,7 @@ test("HTML extraction removes active content and navigation",()=>{
 test("full text rejects unapproved hosts before network access",async()=>{
  await assert.rejects(fetchAllowlistedPage("https://example.org/article",new Set(["trusted.org"])),/allowlisted/);
 });
-test("research reads only explicitly allowed HTML pages",async()=>{
+test("research reads search-derived public HTML pages",async()=>{
  const original=globalThis.fetch;let pages=0;
  globalThis.fetch=async url=>{
   if(String(url).includes("search.brave.com"))return new Response(JSON.stringify({web:{results:[
@@ -109,7 +109,7 @@ test("research reads only explicitly allowed HTML pages",async()=>{
   return new Response(JSON.stringify({choices:[{message:{content:"Evidence [1]"}}]}));
  };
  try{
-  const result=await research({GROQ_API_KEY:"test",BRAVE_SEARCH_API_KEY:"test",RESEARCH_FULLTEXT_HOSTS:"trusted.org"},{query:"research privacy",fulltext:true});
+  const result=await research({GROQ_API_KEY:"test",BRAVE_SEARCH_API_KEY:"test"},{query:"research privacy",fulltext:true});
   assert.equal(pages,1);
   assert.equal(result.fulltext_count,1);
   assert.equal(result.sources[1].page_text,undefined);
