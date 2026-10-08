@@ -2,6 +2,20 @@
 
 最終確認：2026-10-08。**CI（Tests / Agent Quality Gate）は成功**していますが、**Cloudflareへの自動デプロイは2026-10-08に成功**しています。コードのCI成功と本番動作は別です。
 
+## APIを使わずモデル本体を配置する
+
+**外部の推論APIは不要です。** モデルを動かすPC/GPUサーバーで次を実行すると、Hugging Faceから必要なファイルを `models/huihui-qwen3-coder-next/` に取得し、Python版ManaGPTが直接読み込みます。
+
+```bash
+python -m pip install -e '.[local]'
+python scripts/download_huihui.py
+managpt web
+```
+
+モデルは80BのためBF16の重みだけで概算160GBです。これとは別に推論用のGPUメモリ、キャッシュ領域、必要なOS/ライブラリの容量も必要です。ダウンロード済み重みはGitHubにはコミットせず、実行端末に保持します。適切なGPU/CPUを用意しないと起動しません。
+
+Cloudflare Workerの実行環境はメモリ上限128MBのため、この重み自体をWorkerに配置・ロードすることはできません。**この方法で使う場合はPython版ManaGPTのローカルWeb画面（http://127.0.0.1:8000）です。** 既存のworkers.dev版と同じURLで使うにはGPUホストとの別途接続が必要です。
+
 ## まず用意するもの
 - GitHubアカウント（このリポジトリを編集できる権限）
 - Cloudflareアカウント（無料枠から開始可能）

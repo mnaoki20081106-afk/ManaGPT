@@ -13,3 +13,9 @@ __pycache__/
 session_log.json
 handoff_packet.json
 .DS_Store
+models/
+*.safetensors
+*.gguf
+*.pt
+*.pth
+*.bin
