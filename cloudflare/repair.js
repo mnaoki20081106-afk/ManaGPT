@@ -25,6 +25,21 @@ export async function repairFailedPR(env,number){
    const d=await gh(env,root+"/contents/"+f.filename+"?ref="+encodeURIComponent(pr.head.ref));
    return {path:f.filename,content:decode(d.content).slice(0,14000),sha:d.sha};
  }));
+ const workflowRuns=await gh(env,root+"/actions/runs?head_sha="+encodeURIComponent(pr.head.sha)+"&per_page=20");
+ const workflowLogs=[];
+ for(const run of (workflowRuns.workflow_runs||[]).filter(x=>x.conclusion==="failure").slice(0,2)){
+  const jobs=await gh(env,root+"/actions/runs/"+run.id+"/jobs?per_page=30");
+  for(const job of (jobs.jobs||[]).filter(j=>j.conclusion==="failure").slice(0,2)){
+   const response=await fetch("https://api.github.com"+root+"/actions/jobs/"+job.id+"/logs",{
+    headers:{"Authorization":"Bearer "+env.GITHUB_TOKEN,"Accept":"application/vnd.github+json","User-Agent":"manaGPT-agent"},
+    redirect:"follow"});
+   if(response.ok){
+    const log=(await response.text()).slice(-16000);
+    const lines=log.split("\\n").filter(x=>/error|failed|traceback|syntaxerror|assert|exception|cannot find|not found/i.test(x));
+    workflowLogs.push({job:job.name,errors:lines.slice(-45).join("\\n").slice(-6500)});
+   }
+  }
+ }
  const logs=await Promise.all(failures.slice(0,3).map(async c=>{
    const annotations=await gh(env,root+"/check-runs/"+c.id+"/annotations?per_page=30");
    return {name:c.name,summary:c.output?.summary||"",annotations:annotations.map(a=>({path:a.path,message:a.message,line:a.start_line})).slice(0,20)};
@@ -33,7 +48,7 @@ export async function repairFailedPR(env,number){
    method:"POST",headers:{"Authorization":"Bearer "+env.GROQ_API_KEY,"Content-Type":"application/json"},
    body:JSON.stringify({model:env.MANAGPT_MODEL||"qwen/qwen3.8-27b",temperature:0.1,
      messages:[{role:"system",content:"Repair failing tests. Return ONLY JSON {edits:[{path,content}]} with complete file replacements. Use ONLY provided file paths. Maximum 5 files. Do not change authentication or workflows."},
-       {role:"user",content:JSON.stringify({files:sources,failures:logs})}]})});
+       {role:"user",content:JSON.stringify({files:sources,failures:logs,workflowLogs})}]})});
  if(!response.ok)throw Error("Groq HTTP "+response.status);
  const generated=await response.json();let proposal;
  try{proposal=JSON.parse(generated.choices?.[0]?.message?.content||"")}catch{throw Error("Invalid repair JSON")}
