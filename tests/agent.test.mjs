@@ -95,8 +95,9 @@ test("HTML extraction removes active content and navigation",()=>{
  assert.equal(text.includes("Menu"),false);
  assert.match(text,/Research Facts & sources/);
 });
-test("full text rejects unapproved hosts before network access",async()=>{
- await assert.rejects(fetchAllowlistedPage("https://example.org/article",new Set(["trusted.org"])),/allowlisted/);
+test("full text rejects unsafe destinations before network access",async()=>{
+ await assert.rejects(fetchPublicPage("https://localhost/article"),/Unsafe/);
+ await assert.rejects(fetchPublicPage("https://example.org:8443/article"),/Unsafe/);
 });
 test("research reads search-derived public HTML pages",async()=>{
  const original=globalThis.fetch;let pages=0;
