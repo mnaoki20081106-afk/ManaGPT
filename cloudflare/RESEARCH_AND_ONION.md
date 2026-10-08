@@ -1,7 +1,7 @@
 # manaGPT Research + Onion Safety Roadmap
 
 ## Available now: public web research
-Authenticated POST /api/research with {"query":"..."}.
+Authenticated POST /api/research with {"query":"..."}. The mobile interface now has a research panel.
 Requires BRAVE_SEARCH_API_KEY stored as a Cloudflare Worker Secret and GROQ_API_KEY.
 Searches up to eight HTTPS web results and returns source URLs, snippets and an evidence-grounded answer.
 This is snippet-based research, not independent fact verification or full-page analysis.
@@ -29,3 +29,10 @@ https://support.torproject.org/tor-browser/security/using-tb-safely/
 
 ## Quality benchmark
 Use a fixed evaluation set of 30+ queries spanning multi-source verification, dates, conflicting sources, citation accuracy, Japanese queries and refusal to speculate. Report grounded-answer accuracy, citation validity, coverage, latency and cost. No ChatGPT parity claim without measured comparative results.
+
+## Operational readiness
+1. Deploy Cloudflare Worker (requires CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID in GitHub Actions secrets).
+2. Set Cloudflare Worker Secrets GROQ_API_KEY, MANAGPT_ACCESS_TOKEN, and BRAVE_SEARCH_API_KEY.
+3. Set GITHUB_TOKEN and GITHUB_REPOSITORY to enable the separate coding agent.
+4. Run one live public-web query; verify the citation URLs, response quality, and billing limits.
+5. Do not advertise onion access as live until the isolated Tor connector passes egress isolation tests.
