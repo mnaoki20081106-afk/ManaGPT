@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {buildAttachments,visibleText} from "../cloudflare/attachments.js";
+import {agentAction} from "../cloudflare/agent.js";
 import {githubSettings,githubEnvironment,sealToken,openToken} from "../cloudflare/github_settings.js";
 import {conversations} from "../cloudflare/chat_sessions.js";
 import worker from "../cloudflare/worker.js";
@@ -107,4 +108,74 @@ test("worker GitHub settings endpoint works before Groq is configured",async()=>
  const {db}=mockDb();const env={DB:db,MANAGPT_ACCESS_TOKEN:"secret"};
  const r=await worker.fetch(new Request("https://mana.test/api/github/status",{headers:{Authorization:"Bearer secret"}}),env);
  assert.equal(r.status,200);assert.equal((await r.json()).connected,false);
+});
+
+test("coding mode validates selected repo and attached image model before network calls",async()=>{
+ const base={GITHUB_TOKEN:"test",GITHUB_REPOSITORY:"owner/demo"};
+ await assert.rejects(agentAction(base,{task:"Fix the tests",repository:"owner/other"}),/Selected repository changed/);
+ await assert.rejects(agentAction(base,{task:"Fix the tests",attachments:[{name:"../../oops",kind:"text",text:"x"}]}),/filename/);
+ const png="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl8R20AAAAASUVORK5CYII=";
+ await assert.rejects(agentAction(base,{task:"Fix the tests",attachments:[{name:"bug.png",kind:"image",mime:"image/png",data:png}]}),/MANAGPT_VISION_MODEL/);
+});
+test("coding-mode attachments reach model and selected repository is used in PR creation",async()=>{
+ const original=globalThis.fetch,seen=[];
+ const base64=Buffer.from("export const answer = 1;\n").toString("base64");
+ globalThis.fetch=async (url,options={})=>{
+  const u=String(url),method=options.method||"GET";
+  seen.push({url:u,method,body:options.body});
+  const data=u.includes("api.groq.com")?
+   {choices:[{message:{content:JSON.stringify({edits:[{path:"src/index.js",content:"export const answer = 2;\n"}]})}}]}:
+   u.endsWith("/repos/owner/demo")?{default_branch:"main"}:
+   u.endsWith("/git/ref/heads/main")?{object:{sha:"commit-sha"}}:
+   u.endsWith("/git/commits/commit-sha")?{tree:{sha:"tree-sha"}}:
+   u.includes("/git/trees/tree-sha")?{tree:[{type:"blob",size:100,path:"src/index.js",sha:"blob-sha"}],truncated:false}:
+   u.includes("/contents/src/index.js")&&method==="GET"?{content:base64}:
+   u.endsWith("/git/refs")?{ref:"refs/heads/managpt/agent-test"}:
+   u.endsWith("/contents/src/index.js")&&method==="PUT"?{commit:{sha:"new-commit"}}:
+   u.endsWith("/pulls")&&method==="POST"?{html_url:"https://github.com/owner/demo/pull/7",number:7}:
+   {message:"Unexpected "+u};
+  return new Response(JSON.stringify(data),{status:data.message?404:200});
+ };
+ try{
+  const env={GITHUB_TOKEN:"fake",GITHUB_REPOSITORY:"owner/demo",GROQ_API_KEY:"fake",MANAGPT_MODEL:"test-model"};
+  const result=await agentAction(env,{task:"Fix the index output",repository:"owner/demo",attachments:[
+   {name:"error.log",kind:"text",text:"Expected answer to be 2, received 1"}
+  ]});
+  assert.equal(result.pr_number,7);
+  const inference=JSON.parse(seen.find(x=>x.url.includes("api.groq.com")).body);
+  assert.match(inference.messages[1].content,/Expected answer to be 2/);
+  assert.match(inference.messages[1].content,/error.log/);
+  assert.equal(inference.model,"test-model");
+  assert.ok(seen.some(x=>x.url.endsWith("/repos/owner/demo/pulls")&&x.method==="POST"));
+  assert.ok(!seen.some(x=>x.url.includes("/repos/owner/other")));
+  const pr=JSON.parse(seen.find(x=>x.url.endsWith("/pulls")&&x.method==="POST").body);
+  assert.ok(!pr.body.includes("received 1"),"attachment contents must not leak into PR description");
+ }finally{globalThis.fetch=original}
+});
+test("coding images use a vision-capable model and multimodal request",async()=>{
+ const original=globalThis.fetch;
+ let sent;
+ const png="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl8R20AAAAASUVORK5CYII=";
+ globalThis.fetch=async (url,options={})=>{
+  const u=String(url);
+  if(u.includes("api.groq.com")){
+   sent=JSON.parse(options.body);
+   return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify({edits:[] ,reason:"insufficient context"})}}]}));
+  }
+  const data=u.endsWith("/repos/owner/demo")?{default_branch:"main"}:
+   u.endsWith("/git/ref/heads/main")?{object:{sha:"commit-sha"}}:
+   u.endsWith("/git/commits/commit-sha")?{tree:{sha:"tree-sha"}}:
+   u.includes("/git/trees/tree-sha")?{tree:[{type:"blob",size:100,path:"src/index.js",sha:"blob-sha"}],truncated:false}:
+   u.includes("/contents/src/index.js")?{content:Buffer.from("console.log(1)").toString("base64")}:
+   {message:"Unexpected request"};
+  return new Response(JSON.stringify(data),{status:data.message?404:200});
+ };
+ try{
+  await assert.rejects(agentAction({GITHUB_TOKEN:"fake",GITHUB_REPOSITORY:"owner/demo",GROQ_API_KEY:"fake",MANAGPT_VISION_MODEL:"vision-test"},{
+   task:"Fix screenshot layout",attachments:[{name:"screenshot.png",kind:"image",mime:"image/png",data:png}]
+  }),/insufficient context/);
+  assert.equal(sent.model,"vision-test");
+  assert.equal(sent.messages[1].content[1].type,"image_url");
+  assert.match(sent.messages[1].content[1].image_url.url,/^data:image\/png;base64,/);
+ }finally{globalThis.fetch=original}
 });

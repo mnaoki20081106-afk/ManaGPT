@@ -18,3 +18,17 @@ test("switching GitHub repository resets previously selected PR actions",()=>{
  assert.match(html,/activePR=0/);
  assert.match(html,/\$\("#agent-controls"\)\.classList\.add\("hidden"\)/);
 });
+
+test("coding view offers independent attachments and selected GitHub target",()=>{
+ for(const id of ["agent-dropzone","agent-attach-btn","agent-file-input","agent-attachments","agent-repository","agent-repo-refresh","agent-open-settings"]){
+  assert.ok(html.includes('id="'+id+'"'),id);
+ }
+ assert.match(html,/attachments:files/);
+ assert.match(html,/repository,attachments:files/);
+ assert.match(html,/window\.manaAgentFilesLoading/);
+ assert.match(extras,/window\.manaAgentAttachments=/);
+ assert.match(extras,/window\.renderManaAgentFiles=/);
+ assert.match(extras,/addFiles\(e\.target\.files,"agent"\)/);
+ assert.match(extras,/saveRepo\(e\.target\.value\)/);
+ assert.match(extras,/window\.manaSelectedRepo=selectedRepo/);
+});
