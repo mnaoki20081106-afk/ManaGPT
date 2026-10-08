@@ -1,3 +1,4 @@
+import {collectCI} from "./ci.js";
 import {gh,modelConfig,propose,commitEdits,pathURL} from "./coding.js";
 export {gh,encode,safePath} from "./coding.js";
 export async function agentAction(env,body) {
@@ -28,8 +29,8 @@ export async function agentStatus(env,number) {
  if (!env.GITHUB_TOKEN || !env.GITHUB_REPOSITORY) throw Error("GitHub integration not configured");
  const root = "/repos/" + env.GITHUB_REPOSITORY;
  const pr = await gh(env,root + "/pulls/" + number);
- const result = await gh(env,root + "/commits/" + pr.head.sha + "/check-runs?per_page=100");
- const checks = (result.check_runs || []).map(c=>({name:c.name,status:c.status,conclusion:c.conclusion,url:c.html_url}));
- const validation = !checks.length || result.total_count > checks.length ? "unknown" : checks.some(c=>c.status!=="completed") ? "pending" : checks.every(c=>c.conclusion==="success") ? "passed" : "not_passed";
- return {pr_url:pr.html_url,state:pr.state,head_sha:pr.head.sha,checks,validation};
+ const evidence = await collectCI(env,root,pr.head.sha);
+ const current = await gh(env,root + "/pulls/" + number);
+ if(current.head.sha!==pr.head.sha) return {pr_url:pr.html_url,state:current.state,head_sha:current.head.sha,checks:[],validation:"pending",reason:"PR head changed during validation; check again"};
+ return {pr_url:pr.html_url,state:pr.state,head_sha:pr.head.sha,...evidence};
 }

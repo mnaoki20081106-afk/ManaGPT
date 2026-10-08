@@ -1,3 +1,4 @@
+import {collectCI} from "./ci.js";
 import {gh,safePath,propose,commitEdits,pathURL,modelConfig} from "./coding.js";
 export async function repairFailedPR(env,number){
  if(!env.GITHUB_TOKEN||!env.GITHUB_REPOSITORY)throw Error("GitHub/Groq not configured");
@@ -5,17 +6,17 @@ export async function repairFailedPR(env,number){
  const root="/repos/"+env.GITHUB_REPOSITORY;
  const pr=await gh(env,root+"/pulls/"+number);
  if(pr.state!=="open"||!pr.head.ref.startsWith("managpt/agent-")||pr.head.repo?.full_name!==env.GITHUB_REPOSITORY)throw Error("Only open manaGPT agent PRs can be repaired");
- const runs=await gh(env,root+"/commits/"+pr.head.sha+"/check-runs?per_page=100");
- const checks=runs.check_runs||[];
- if(runs.total_count>checks.length)return {state:"unknown",message:"Incomplete CI check listing"};
- if(checks.some(c=>c.status!=="completed"))return {state:"pending",message:"Tests are still running",checks:checks.map(c=>({name:c.name,status:c.status}))};
- const failures=checks.filter(c=>c.conclusion==="failure");
- if(!checks.length)return {state:"unknown",message:"No CI checks found. Cannot claim tests passed"};
- if(!failures.length){
-  const bad=checks.filter(c=>c.conclusion!=="success");
-  if(bad.length)return {state:"unknown",message:"Checks did not all succeed",checks:bad.map(c=>({name:c.name,conclusion:c.conclusion}))};
-  return {state:"passed",message:"All reported checks passed"};
+ const evidence=await collectCI(env,root,pr.head.sha);
+ const checks=evidence.checks;
+ if(evidence.validation!=="not_passed"){
+  if(evidence.validation==="passed"){
+   const latest=await gh(env,root+"/pulls/"+number);
+   if(latest.head.sha!==pr.head.sha)return {state:"pending",message:"PR head changed during validation"};
+  }
+  return {state:evidence.validation,message:evidence.reason};
  }
+ const failures=checks.filter(c=>c.conclusion==="failure"||c.conclusion==="error"||c.conclusion==="timed_out");
+ if(!failures.length)return {state:"unknown",message:"No actionable failure; rerun cancelled or skipped checks"};
  const comments=await gh(env,root+"/issues/"+number+"/comments?per_page=100");
  if(comments.length>=100)return {state:"limit",message:"Repair history exceeds inspection budget"};
  const prior=(comments||[]).filter(c=>c.body?.startsWith("manaGPT repair attempt:")).length;
@@ -39,6 +40,7 @@ export async function repairFailedPR(env,number){
   }
  }
  const logs=await Promise.all(failures.slice(0,3).map(async c=>{
+   if(c.kind==="status")return {name:c.name,summary:c.output.summary,annotations:[]};
    const annotations=await gh(env,root+"/check-runs/"+c.id+"/annotations?per_page=30");
    return {name:c.name,summary:c.output?.summary||"",annotations:annotations.map(a=>({path:a.path,message:a.message,line:a.start_line})).slice(0,20)};
  }));
