@@ -9,12 +9,12 @@ export const publicSource = x => {
 };
 export const citationIds = answer => [...new Set([...answer.matchAll(/\[(\d+)\]/g)].map(m=>Number(m[1])))];
 export const extractPageText = html => html
- .replace(/<!--[\\s\\S]*?-->/g," ")
+ .replace(/<!--[\s\S]*?-->/g," ")
  .replace(/<(?:script|style|noscript|svg|iframe|form|nav|footer|header)[^>]*>[\s\S]*?<\/(?:script|style|noscript|svg|iframe|form|nav|footer|header)\s*>/gi," ")
  .replace(/<[^>]+>/g," ")
  .replace(/&nbsp;|&#160;/gi," ")
  .replace(/&amp;/gi,"&").replace(/&lt;/gi,"<").replace(/&gt;/gi,">")
- .replace(/\\s+/g," ").trim().slice(0,9000);
+ .replace(/\s+/g," ").trim().slice(0,9000);
 export async function fetchPublicPage(url){
  const u=new URL(url);
  if(!publicSource({url})||!u.hostname.includes(".")||u.port)throw Error("Unsafe full-text destination");
