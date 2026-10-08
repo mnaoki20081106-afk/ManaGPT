@@ -14,6 +14,7 @@ jobs:
           node-version: '22'
       - name: Parse and validate Worker modules
         run: |
+          cp cloudflare/inference.js /tmp/managpt-inference.mjs
           cp cloudflare/agent.js /tmp/managpt-agent.mjs
           cp cloudflare/repair.js /tmp/managpt-repair.mjs
           cp cloudflare/worker.js /tmp/managpt-worker.mjs
@@ -22,6 +23,7 @@ jobs:
           cp cloudflare/attachments.js /tmp/managpt-attachments.mjs
           cp cloudflare/github_settings.js /tmp/managpt-github-settings.mjs
           cp cloudflare/public/extras.js /tmp/managpt-extras.mjs
+          node --check /tmp/managpt-inference.mjs
           node --check /tmp/managpt-agent.mjs
           node --check /tmp/managpt-repair.mjs
           node --check /tmp/managpt-worker.mjs
@@ -31,7 +33,7 @@ jobs:
           node --check /tmp/managpt-github-settings.mjs
           node --check /tmp/managpt-extras.mjs
       - name: Agent regression tests
-        run: node --experimental-default-type=module --test tests/agent.test.mjs tests/integrations.test.mjs tests/ui-wiring.test.mjs
+        run: node --experimental-default-type=module --test tests/agent.test.mjs tests/integrations.test.mjs tests/inference.test.mjs tests/ui-wiring.test.mjs
       - name: Cloudflare deployment preflight tests
         run: node --test .github/scripts/cloudflare-preflight.test.mjs
       - name: Tor URL validation tests
