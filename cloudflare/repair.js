@@ -1,7 +1,8 @@
 import {gh,encode,safePath} from "./agent.js";
+import {inferenceReady,requestInference} from "./inference.js";
 const decode=s=>new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\s/g,"")),c=>c.charCodeAt(0)));
 export async function repairFailedPR(env,number){
- if(!env.GITHUB_TOKEN||!env.GITHUB_REPOSITORY||!env.GROQ_API_KEY)throw Error("GitHub/Groq not configured");
+ if(!env.GITHUB_TOKEN||!env.GITHUB_REPOSITORY||!inferenceReady(env))throw Error("GitHub/inference not configured");
  const root="/repos/"+env.GITHUB_REPOSITORY;
  const pr=await gh(env,root+"/pulls/"+number);
  if(pr.state!=="open"||!pr.head.ref.startsWith("managpt/agent-")||pr.head.repo.full_name!==env.GITHUB_REPOSITORY)throw Error("Only open manaGPT agent PRs can be repaired");
@@ -44,12 +45,10 @@ export async function repairFailedPR(env,number){
    const annotations=await gh(env,root+"/check-runs/"+c.id+"/annotations?per_page=30");
    return {name:c.name,summary:c.output?.summary||"",annotations:annotations.map(a=>({path:a.path,message:a.message,line:a.start_line})).slice(0,20)};
  }));
- const response=await fetch("https://api.groq.com/openai/v1/chat/completions",{
-   method:"POST",headers:{"Authorization":"Bearer "+env.GROQ_API_KEY,"Content-Type":"application/json"},
-   body:JSON.stringify({model:env.MANAGPT_MODEL||"qwen/qwen3.8-27b",temperature:0.1,
+ const response=await requestInference(env,{temperature:0.1,stream:false,
      messages:[{role:"system",content:"Repair failing tests. Return ONLY JSON {edits:[{path,content}]} with complete file replacements. Use ONLY provided file paths. Maximum 5 files. Do not change authentication or workflows."},
-       {role:"user",content:JSON.stringify({files:sources,failures:logs,workflowLogs})}]})});
- if(!response.ok)throw Error("Groq HTTP "+response.status);
+       {role:"user",content:JSON.stringify({files:sources,failures:logs,workflowLogs})}]});
+ if(!response.ok)throw Error("Inference HTTP "+response.status);
  const generated=await response.json();let proposal;
  try{proposal=JSON.parse(generated.choices?.[0]?.message?.content||"")}catch{throw Error("Invalid repair JSON")}
  if(!Array.isArray(proposal.edits)||!proposal.edits.length||proposal.edits.length>5)throw Error("Invalid repair proposal");
