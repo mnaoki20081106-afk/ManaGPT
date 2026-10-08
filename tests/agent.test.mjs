@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {safePath,agentAction,agentStatus} from "../cloudflare/agent.js";
 import {repairFailedPR} from "../cloudflare/repair.js";
 import worker from "../cloudflare/worker.js";
-import {research} from "../cloudflare/research.js";
+import {research,citationIds,publicSource} from "../cloudflare/research.js";
 
 test("unsafe paths are rejected",()=>{
  for(const p of ["../secret",".env","node_modules/a.js",".github/workflows/evil.yml","/root/x"]){
@@ -61,5 +61,30 @@ test("research preserves citations and filters unsafe search links",async()=>{
   assert.equal(result.sources[0].url,"https://example.org/guide");
   assert.equal(result.answer,"Answer [1]");
   assert.equal(result.verified,false);
+ }finally{globalThis.fetch=original}
+});
+
+test("citation integrity and unsafe URL filtering",()=>{
+ assert.deepEqual(citationIds("A [1], B [2], A [1]"),[1,2]);
+ for(const url of ["https://localhost/x","https://127.0.0.1/x","https://10.0.0.1/x","https://192.168.1.1/x","http://example.org","https://sample.onion"]){
+  assert.equal(publicSource({url}),false,url);
+ }
+});
+test("deep research uses two searches and deduplicates sources",async()=>{
+ const original=globalThis.fetch;
+ let searches=0;
+ globalThis.fetch=async url=>{
+  if(String(url).includes("search.brave.com")){
+   searches++;
+   return new Response(JSON.stringify({web:{results:[{title:"Source",url:"https://example.org/a?utm_source=x",description:"Facts"}]}}));
+  }
+  return new Response(JSON.stringify({choices:[{message:{content:"Evidence [1]"}}]}));
+ };
+ try{
+  const result=await research({GROQ_API_KEY:"test",BRAVE_SEARCH_API_KEY:"test"},{query:"privacy research",deep:true});
+  assert.equal(searches,2);
+  assert.equal(result.sources.length,1);
+  assert.equal(result.citation_valid,true);
+  assert.equal(result.sources[0].url,"https://example.org/a");
  }finally{globalThis.fetch=original}
 });
