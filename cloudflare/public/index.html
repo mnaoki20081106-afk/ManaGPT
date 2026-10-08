@@ -4,13 +4,20 @@
 <button type="button" onclick="runAgent()">修正案を作成</button>
 <p id="agent-result" style="white-space:pre-wrap;overflow-wrap:anywhere"></p>
 <div id="agent-controls" hidden><button type="button" onclick="inspectPR()">テスト確認</button><button type="button" onclick="repairPR()">失敗をAIで修正</button><span id="agent-checks"></span></div>
+</details><details style="margin:15px 0;background:#202b3c;padding:14px;border-radius:12px"><summary>出典付きWebリサーチ</summary>
+<p>公開Webを検索し、検索結果の抜粋に基づいて回答します。ページ本文の検証やTor接続は行いません。</p>
+<textarea id="research-query" placeholder="調べたいことを入力（例: Torのオニオンサービスとは？）"></textarea>
+<button type="button" id="research-submit" onclick="runResearch()">調査する</button>
+<p id="research-answer" style="white-space:pre-wrap;overflow-wrap:anywhere" aria-live="polite"></p>
+<ol id="research-sources"></ol><small id="research-note"></small>
 </details><section id="chat"></section><form id="form"><textarea id="message" placeholder="メッセージを入力" required></textarea><button id="send">送信</button></form></main><script>
 let secret=sessionStorage.getItem("mana-token")||"";const chat=document.querySelector("#chat"),status=document.querySelector("#status");
 function show(role,content){const e=document.createElement("article");e.className=role==="user"?"me":"";e.textContent=(role==="user"?"あなた: ":"manaGPT: ")+content;chat.append(e);e.scrollIntoView()}
 async function api(path,options={}){const r=await fetch("/api/"+path,{...options,headers:{"Authorization":"Bearer "+secret,"Content-Type":"application/json"}});const d=await r.json();if(!r.ok)throw Error(d.error||"HTTP "+r.status);return d}
 async function login(){secret=document.querySelector("#token").value;sessionStorage.setItem("mana-token",secret);try{const d=await api("history");chat.replaceChildren();d.messages.forEach(m=>show(m.role,m.content));status.textContent="接続済み";document.querySelector("#login").hidden=true;document.querySelector("#setup").hidden=true}catch(e){status.textContent=e.message}}
 async function checkSetup(){const label=document.querySelector("#setup-result");label.textContent="接続確認中…";try{const r=await fetch("/health");const d=await r.json();if(!d.ok)throw Error("サーバー応答エラー");label.textContent="サイトは起動しています。Secretを登録したら、アクセス用トークンで接続してください。";}catch(e){label.textContent="接続に失敗しました: "+e.message}}
-let activePR=0;\nasync function runAgent(){
+let activePR=0;
+async function runAgent(){
  const task=document.querySelector("#agent-task").value.trim(),el=document.querySelector("#agent-result");
  if(task.length<5){el.textContent="指示を5文字以上入力してください";return}
  if(!confirm("GitHubに新しいブランチとPRを作成します。続けますか？"))return;
@@ -18,7 +25,8 @@ let activePR=0;\nasync function runAgent(){
  try{const d=await api("agent/run",{method:"POST",body:JSON.stringify({task})});
  el.replaceChildren();
  const a=document.createElement("a");a.href=d.pr_url;a.target="_blank";a.rel="noopener";a.textContent="Pull Request #"+d.pr_number+" を開く";
- el.append(a,document.createTextNode("\n変更ファイル: "+d.files.map(f=>f.path).join(", ")+"\nテスト結果はPRのChecksを確認してください。"));\n activePR=d.pr_number;document.querySelector("#agent-controls").hidden=false;
+ el.append(a,document.createTextNode("\n変更ファイル: "+d.files.map(f=>f.path).join(", ")+"\nテスト結果はPRのChecksを確認してください。"));
+ activePR=d.pr_number;document.querySelector("#agent-controls").hidden=false;
  }catch(e){el.textContent="失敗: "+e.message}
 }
 async function inspectPR(){
@@ -32,6 +40,24 @@ async function repairPR(){
  const el=document.querySelector("#agent-checks");el.textContent=" 修正中…";
  try{const d=await api("agent/repair",{method:"POST",body:JSON.stringify({pr:activePR})});el.textContent=" "+d.message}
  catch(e){el.textContent=" "+e.message}
+}
+async function runResearch(){
+ const query=document.querySelector("#research-query").value.trim();
+ const answer=document.querySelector("#research-answer"),list=document.querySelector("#research-sources"),note=document.querySelector("#research-note"),btn=document.querySelector("#research-submit");
+ if(query.length<3){answer.textContent="3文字以上入力してください";return}
+ btn.disabled=true;answer.textContent="検索・調査中…";list.replaceChildren();note.textContent="";
+ try{
+  const d=await api("research",{method:"POST",body:JSON.stringify({query})});
+  answer.textContent=d.answer;
+  for(const source of d.sources||[]){
+   const li=document.createElement("li"),a=document.createElement("a");
+   a.href=source.url;a.target="_blank";a.rel="noopener noreferrer";
+   a.textContent="["+source.id+"] "+source.title;
+   li.append(a,document.createTextNode(" — "+source.description));list.append(li);
+  }
+  note.textContent="検索結果の抜粋に基づく回答です。全文確認・独立検証は行っていません。";
+ }catch(e){answer.textContent="調査失敗: "+e.message}
+ finally{btn.disabled=false}
 }
 function logout(){sessionStorage.removeItem("mana-token");location.reload()}
 document.querySelector("#form").onsubmit=async e=>{e.preventDefault();const box=document.querySelector("#message"),message=box.value.trim();if(!message)return;box.value="";show("user",message);document.querySelector("#send").disabled=true;status.textContent="生成中…";try{const d=await api("chat",{method:"POST",body:JSON.stringify({message})});show("assistant",d.answer);status.textContent="接続済み"}catch(err){status.textContent=err.message}finally{document.querySelector("#send").disabled=false}};
