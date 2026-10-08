@@ -15,10 +15,10 @@ DEFAULT_PROMPT = (
 
 @dataclass(frozen=True)
 class Config:
-    model: str = "qwen/qwen3.8-27b"
-    provider: str = "groq"
+    model: str = "cooperleong00/Qwen3-8B-Jailbroken"
+    provider: str = "openai-compatible"
     api_key: str = ""
-    api_base_url: str = "https://api.groq.com/openai/v1"
+    api_base_url: str = ""
     ollama_host: str = "http://127.0.0.1:11434"
     database_path: str = "managpt.db"
     system_prompt: str = DEFAULT_PROMPT
