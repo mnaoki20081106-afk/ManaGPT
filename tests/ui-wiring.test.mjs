@@ -33,10 +33,11 @@ test("coding view offers independent attachments and selected GitHub target",()=
  assert.match(extras,/window\.manaSelectedRepo=selectedRepo/);
 });
 
-test("model status shows real provider and legacy fallback explicitly",()=>{
+test("model status shows only the Huihui target and reports missing endpoint",()=>{
  assert.match(html,/id="active-model"/);
  assert.match(html,/id="model-details"/);
  assert.match(html,/api\("model"\)/);
- assert.match(html,/Groq（従来モデル）/);
- assert.match(html,/指定モデルではありません/);
+ assert.match(html,/Huihui Qwen3 Coder Next/);
+ assert.match(html,/推論先未設定/);
+ assert.doesNotMatch(html,/Groq（従来モデル）/);
 });
