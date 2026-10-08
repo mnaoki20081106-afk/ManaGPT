@@ -28,7 +28,7 @@ test("preflight reuses existing D1 database",async()=>{
  const calls=[];let written;
  const fetchFn=async(url,opts)=>{
   calls.push([url,opts.method||"GET"]);
-  if(url.endsWith("/user/tokens/verify"))return good({status:"active"});
+  if(url.endsWith("/tokens/verify"))return good({status:"active"});
   if(url.includes("/d1/database?"))return good([{name:"managpt",uuid}]);
   throw Error("unexpected request");
  };
@@ -41,11 +41,24 @@ test("preflight creates D1 database once when missing",async()=>{
  const methods=[];
  const fetchFn=async(url,opts)=>{
   methods.push(opts.method||"GET");
-  if(url.endsWith("/user/tokens/verify"))return good({status:"active"});
+  if(url.endsWith("/tokens/verify"))return good({status:"active"});
   if(url.includes("/d1/database?"))return good([]);
   if(url.endsWith("/d1/database")&&opts.method==="POST")return good({name:"managpt",uuid});
   throw Error("unexpected request");
  };
  await prepareDeployment({token:"token123",accountId:account,fetchFn,readFile:async()=>config,writeFile:async()=>{}});
  assert.deepEqual(methods,["GET","GET","POST"]);
+});
+
+test("preflight accepts user-owned token when account-token verification is unsupported",async()=>{
+ const seen=[];
+ const fetchFn=async url=>{
+  seen.push(url);
+  if(url.includes("/accounts/")&&url.endsWith("/tokens/verify"))return {ok:false,status:401,json:async()=>({success:false,errors:[{code:9109}]})};
+  if(url.endsWith("/user/tokens/verify"))return good({status:"active"});
+  if(url.includes("/d1/database?"))return good([{name:"managpt",uuid}]);
+  throw Error("unexpected request");
+ };
+ await prepareDeployment({token:"token123",accountId:account,fetchFn,readFile:async()=>config,writeFile:async()=>{}});
+ assert.equal(seen.length,3);
 });
