@@ -40,12 +40,16 @@
 4. Deploy Workerの成功後、CloudflareのWorkers設定で `DB` バインディングを確認してください。
 5. 会話用テーブルは、初回APIアクセス時にコード側で作成されます。
 
-## STEP 5 — Huihui Qwen3 Coder Nextの推論APIを接続
-1. 新しい対象は [huihui-ai/Huihui-Qwen3-Coder-Next-abliterated](https://huggingface.co/huihui-ai/Huihui-Qwen3-Coder-Next-abliterated) です。80Bパラメータで、Hugging Faceの公開Inference Providerはありません。
-2. モデルをホストするGPU上でvLLMやOllamaを用意します。vLLMなら `vllm serve huihui-ai/Huihui-Qwen3-Coder-Next-abliterated --served-model-name huihui-ai/Huihui-Qwen3-Coder-Next-abliterated` が基本例です。公開APIは認証付きHTTPSで保護します。
-3. Cloudflare **Workers & Pages → managpt → Settings → Variables and Secrets** で `MANAGPT_INFERENCE_BASE_URL=https://YOUR-HOST/v1`、`MANAGPT_INFERENCE_API_KEY`（Secret）を設定します。必要なら `MANAGPT_INFERENCE_MODEL` でサーバー側の登録名を指定します。`wrangler.jsonc`の `MANAGPT_MODEL` は新モデルに設定済みです。
-4. モデルの実サーバーがまだない場合、既存の `FEATHERLESS_API_KEY` は**前モデル** `cooperleong00/Qwen3-8B-Jailbroken`、`GROQ_API_KEY` は従来の `qwen/qwen3.8-27b` を使い続けます。両方ある場合はFeatherlessを優先します。新モデルに変わったと誤表示しません。
-5. ManaGPTの「設定・接続 → 現在の推論モデル」で実際のモデルIDを確認します。Featherlessで提供が確認できた場合のみ、`MANAGPT_FEATHERLESS_MODEL` を使って呼び先IDを明示的に変えられます。
+## STEP 5 — Huihui専用推論サーバーを設定
+
+1. [Huihui-Qwen3-Coder-Next-abliterated](https://huggingface.co/huihui-ai/Huihui-Qwen3-Coder-Next-abliterated) は80Bモデルです。公開Inference Providerには配備されていません。正確なモデルを実行できるGPUサーバーとOpenAI互換APIが必要です。
+2. Cloudflare → Workers & Pages → managpt → Settings → Variables and Secrets に以下を設定します。
+   - `MANAGPT_INFERENCE_BASE_URL`: 認証付きHTTPS APIのルート（例 `https://YOUR-SERVER/v1`）
+   - `MANAGPT_INFERENCE_API_KEY`: API用Secret
+   - `MANAGPT_ACCESS_TOKEN`: 既存のManaGPTログイン用Secret
+3. `MANAGPT_MODEL`は`wrangler.jsonc`で `huihui-ai/Huihui-Qwen3-Coder-Next-abliterated` に設定済みです。別モデルへの切り替え機能はありません。
+4. 旧Groq・FeatherlessのAPIキーは推論に使用しません。画像付きの入力は未対応です。推論先未設定の場合は503エラーとなり、旧モデルを呼び出しません。
+5. モデルが読み込まれたサーバーに接続した後、ManaGPTの「現在の推論モデル」を確認し、チャット、Webリサーチ、コーディングモードを試してください。
 
 ## STEP 6 — Safariで接続
 1. Cloudflareで `managpt` Workerの `*.workers.dev` URLを確認。
@@ -96,9 +100,9 @@
 - **GitHub Actionsが失敗**：Actionsログの最初のエラーを確認。Secrets未登録、D1設定、API Token権限を順に点検。
 - **401 Unauthorized**：アクセス用トークンを確認。
 - **503**：CloudflareのSecretまたはDBバインディング不足。
-- **502**：利用中のモデルプロバイダー（Groq/Featherless/専用GPU）、認証トークン、プラン、モデルIDを確認。
+- **502**：Huihui推論サーバーの認証トークン、稼働、モデルID、ストリーミング応答を確認。
 - **会話が保存されない**：D1の `DB` バインディングとWorkerログを確認。
 - **ストリーミングが止まる**：使用中の推論APIのレスポンス、Workerログ、ネットワークを確認。中断した応答は保存されない場合があります。
 
 ## 料金の目安
-無料枠から開始できますが、Cloudflare Workers/D1・Brave Searchにはそれぞれ利用制限があります。指定モデルをホストするGPUには別途費用がかかることがあります。料金体系は変更されるため、最新条件を確認してください。Torサイドカーも別途ホスティングが必要になる場合があります。
+Cloudflare Workers/D1・Brave Searchには利用制限があります。80BモデルのGPUホスティングには費用が発生する場合があります。料金体系は変更されるため、最新条件を確認してください。Torサイドカーも別途ホスティングが必要になる場合があります。
