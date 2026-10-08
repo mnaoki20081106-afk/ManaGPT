@@ -1,0 +1,1 @@
+{"name":"managpt","main":"cloudflare/worker.js","compatibility_date":"2026-10-08","assets":{"directory":"./cloudflare/public","binding":"ASSETS","run_worker_first":false},"d1_databases":[{"binding":"DB","database_name":"managpt","database_id":"REPLACE_WITH_D1_DATABASE_ID"}],"vars":{"MANAGPT_MODEL":"qwen/qwen3.8-27b"}}
