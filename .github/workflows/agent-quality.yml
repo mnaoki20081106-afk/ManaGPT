@@ -26,6 +26,8 @@ jobs:
           node --check /tmp/managpt-chat-sessions.mjs
       - name: Agent regression tests
         run: node --experimental-default-type=module --test tests/agent.test.mjs
+      - name: Cloudflare deployment preflight tests
+        run: node --test .github/scripts/cloudflare-preflight.test.mjs
       - name: Tor URL validation tests
         run: python3 -m unittest discover -s tor -p "test_*.py" -v
       - name: Validate project config
