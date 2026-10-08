@@ -1,7 +1,8 @@
-// Shared OpenAI-compatible inference router. Always report the model actually requested.
-// Prefer an explicitly configured endpoint, then Featherless (exact HF weights),
-// then the pre-existing Groq model for compatibility with existing installations.
-export const DEFAULT_MODEL = "cooperleong00/Qwen3-8B-Jailbroken";
+// Shared OpenAI-compatible inference router. Report the model actually requested.
+// New exact model requires an inference server that really hosts these HF weights.
+// Keep legacy Featherless and Groq working unless users explicitly configure new hosting.
+export const DEFAULT_MODEL = "huihui-ai/Huihui-Qwen3-Coder-Next-abliterated";
+export const LEGACY_FEATHERLESS_MODEL = "cooperleong00/Qwen3-8B-Jailbroken";
 export const LEGACY_GROQ_MODEL = "qwen/qwen3.8-27b";
 const present = value => typeof value === "string" && value.trim().length > 0;
 
@@ -28,25 +29,27 @@ export function inferenceSettings(env, {vision=false}={}) {
    throw Error("MANAGPT_INFERENCE_BASE_URL must be a clean HTTPS URL");
   const base=url.toString().replace(/\/+$/,"");
   if(!base.endsWith("/v1"))throw Error("MANAGPT_INFERENCE_BASE_URL must end with /v1");
-  const model=env.MANAGPT_MODEL||DEFAULT_MODEL;
+  const model=env.MANAGPT_INFERENCE_MODEL || env.MANAGPT_MODEL || DEFAULT_MODEL;
   return {url:base+"/chat/completions",key:env.MANAGPT_INFERENCE_API_KEY,
     model,provider:"custom",fallback:model!==DEFAULT_MODEL};
  }
  if (present(env?.FEATHERLESS_API_KEY)) {
+  // Do not assume the new 80B model is available on Featherless.
+  // Preserve the former served model by default; changing it is explicit.
+  const model=env.MANAGPT_FEATHERLESS_MODEL || LEGACY_FEATHERLESS_MODEL;
   return {url:"https://api.featherless.ai/v1/chat/completions",
-    key:env.FEATHERLESS_API_KEY,model:DEFAULT_MODEL,provider:"featherless",fallback:false};
+    key:env.FEATHERLESS_API_KEY,model,provider:"featherless",fallback:model!==DEFAULT_MODEL};
  }
  if (present(env?.GROQ_API_KEY)) {
-  // The requested HF model is not hosted on Groq. Never send its ID to Groq:
-  // preserve the previously working model and advertise the fallback explicitly.
+  // The exact HF model is not served by Groq. Preserve the previous provider.
+  const model=env.MANAGPT_GROQ_MODEL || LEGACY_GROQ_MODEL;
   return {url:"https://api.groq.com/openai/v1/chat/completions",
-    key:env.GROQ_API_KEY,model:env.MANAGPT_GROQ_MODEL||LEGACY_GROQ_MODEL,
-    provider:"groq",fallback:true};
+    key:env.GROQ_API_KEY,model,provider:"groq",fallback:model!==DEFAULT_MODEL};
  }
- throw Error("Configure FEATHERLESS_API_KEY for Qwen3-8B-Jailbroken, or keep GROQ_API_KEY for the previous model");
+ throw Error("No inference provider configured: set MANAGPT_INFERENCE_BASE_URL and MANAGPT_INFERENCE_API_KEY for the Huihui model, or configure an existing compatible provider");
 }
 
-// Public fields only: never expose API keys or private inference endpoint URLs.
+// No credentials, internal URLs, or tokens are exposed by the authenticated status API.
 export function inferenceStatus(env) {
  if(!inferenceReady(env)) return {ready:false,provider:null,model:null,
    preferred_model:DEFAULT_MODEL,fallback:false};
