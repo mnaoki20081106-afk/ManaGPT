@@ -88,3 +88,14 @@ GitHub Actionsでもpytestを実行します。テスト時にモデルのダウ
 ## 開発の元になった機能
 
 従来の `Qwen3-8B` CLIの会話履歴、`/think`、`/clear`、`/context`、`/role`、`/export` 機能を引き継ぎ、Qwen3.8対応・自動履歴保存・ブラウザUIを加えました。
+
+
+## 月額0円の外部推論 (Groq)
+
+1. [Groq Console](https://console.groq.com/keys) で無料APIキーを発行。
+2. 環境変数 `MANAGPT_API_KEY` に設定。
+3. `managpt web` を起動。
+
+標準接続は `MANAGPT_PROVIDER=groq`、`MANAGPT_MODEL=qwen/qwen3.8-27b`、`MANAGPT_API_BASE_URL=https://api.groq.com/openai/v1`。無料枠のレート制限に達した場合は429エラーが返ります。自動的な有料枠移行は行いません。既存のOllama利用時は `MANAGPT_PROVIDER=ollama` を指定してください。OpenRouterの無料モデルにも設定変更で対応します。
+
+**注意:** Web UIは認証なしでローカル向けです。GitHub Actionsはテストのみで常時稼働サーバーではありません。スマホからのアクセスには認証付きのホスティングが別途必要です。
