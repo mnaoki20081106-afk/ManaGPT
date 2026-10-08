@@ -1,0 +1,25 @@
+name: Agent Quality Gate
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  javascript:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Parse and validate Worker modules
+        run: |
+          cp cloudflare/agent.js /tmp/managpt-agent.mjs
+          cp cloudflare/repair.js /tmp/managpt-repair.mjs
+          cp cloudflare/worker.js /tmp/managpt-worker.mjs
+          node --check /tmp/managpt-agent.mjs
+          node --check /tmp/managpt-repair.mjs
+          node --check /tmp/managpt-worker.mjs
+      - name: Validate project config
+        run: |
+          node -e "const c=require('./wrangler.jsonc');if(!c.main||!c.d1_databases?.length)process.exit(1)"
