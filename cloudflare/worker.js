@@ -8,6 +8,7 @@ export default {
   if(!env.MANAGPT_ACCESS_TOKEN || !env.GROQ_API_KEY || !env.DB) return json({error:"Configure MANAGPT_ACCESS_TOKEN, GROQ_API_KEY and DB first"},503);
   const token=request.headers.get("Authorization")?.replace(/^Bearer /,"");
   if(!token || token!==env.MANAGPT_ACCESS_TOKEN) return json({error:"Unauthorized"},401);
+  await env.DB.prepare("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT NOT NULL CHECK(role IN (\'user\',\'assistant\')), content TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
   if(url.pathname==="/api/history" && request.method==="GET"){
    const {results}=await env.DB.prepare("SELECT role,content,created_at FROM messages ORDER BY id DESC LIMIT 40").all();
    return json({messages:results.reverse()});
