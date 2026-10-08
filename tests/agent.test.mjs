@@ -4,6 +4,7 @@ import {safePath,agentAction,agentStatus} from "../cloudflare/agent.js";
 import {repairFailedPR} from "../cloudflare/repair.js";
 import worker from "../cloudflare/worker.js";
 import {research,citationIds,publicSource,extractPageText,fetchPublicPage} from "../cloudflare/research.js";
+import {conversations} from "../cloudflare/chat_sessions.js";
 
 test("unsafe paths are rejected",()=>{
  for(const p of ["../secret",".env","node_modules/a.js",".github/workflows/evil.yml","/root/x"]){
@@ -115,4 +116,16 @@ test("research reads search-derived public HTML pages",async()=>{
   assert.equal(result.fulltext_count,1);
   assert.equal(result.sources[1].page_text,undefined);
  }finally{globalThis.fetch=original}
+});
+
+test("conversation API rejects invalid ids and missing sessions",async()=>{
+ const db={prepare(sql){return {run:async()=>({}),bind(){return this},first:async()=>null,all:async()=>({results:[]})}}};
+ const env={DB:db};
+ const list=await conversations(new Request("https://test/api/conversations"),env,new URL("https://test/api/conversations"));
+ assert.equal(list.status,200);
+ assert.deepEqual((await list.json()).conversations,[]);
+ const invalid=await conversations(new Request("https://test/api/conversations/bad"),env,new URL("https://test/api/conversations/bad"));
+ assert.equal(invalid.status,400);
+ const missing=await conversations(new Request("https://test/api/conversations/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),env,new URL("https://test/api/conversations/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"));
+ assert.equal(missing.status,404);
 });
