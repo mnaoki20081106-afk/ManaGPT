@@ -35,4 +35,4 @@
 - Cloudflare Workerは無料枠を利用可能ですが、指定モデルのGPU推論には別途ホスティング費用が発生する場合があります。
 - workers.dev URLは公開URLです。トークン認証が必要なAPIでも、チャット画面自体は公開されます。
 - この実装は個人用の簡易認証で、Cloudflare Access等の強化は未実装です。
-- GitHub Actionsが通っても、Groqとの本番接続にはAPIキーを使った実機確認が必要です。
+- GitHub Actionsが通っても、専用Qwen推論エンドポイントとの本番接続・モデル識別・ストリーミング動作を実機で確認してください。
