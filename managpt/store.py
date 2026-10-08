@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import sqlite3
+from .config import TARGET_MODEL
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
@@ -42,6 +43,7 @@ class Store:
             self.db.close()
 
     def new_session(self, model: str) -> dict:
+        model = TARGET_MODEL
         sid = str(uuid4())
         with self._lock, self.db:
             self.db.execute("INSERT INTO sessions(id,created_at,model) VALUES(?,?,?)", (sid, timestamp(), model))
@@ -55,13 +57,15 @@ class Store:
         if row is None:
             raise KeyError("Unknown session")
         return dict(zip(("id", "created_at", "model", "thinking", "role", "project_context"),
-                        (row[0], row[1], row[2], bool(row[3]), row[4], row[5])))
+                        (row[0], row[1], TARGET_MODEL, bool(row[3]), row[4], row[5])))
 
     def update(self, sid: str, **fields) -> dict:
         allowed = {"model", "thinking", "role", "project_context"}
         if not fields or set(fields) - allowed:
             raise ValueError("Invalid session settings")
         self.session(sid)
+        if "model" in fields and fields["model"] != TARGET_MODEL:
+            raise ValueError("Only Huihui-Qwen3-Coder-Next-abliterated is supported")
         if "thinking" in fields:
             fields["thinking"] = int(fields["thinking"])
         with self._lock, self.db:
