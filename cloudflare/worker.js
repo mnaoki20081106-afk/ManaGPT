@@ -1,3 +1,4 @@
+import {repairFailedPR} from "./repair.js";
 import {agentAction,agentStatus} from "./agent.js";
 // manaGPT Cloudflare Worker: private, serverless, D1-backed chat.
 const headers = {"content-type":"application/json; charset=utf-8","cache-control":"no-store"};
@@ -11,6 +12,10 @@ export default {
   if(!token || token!==env.MANAGPT_ACCESS_TOKEN) return json({error:"Unauthorized"},401);
   if(url.pathname==="/api/agent/run" && request.method==="POST"){
    try{return json(await agentAction(env,await request.json()))}
+   catch(e){return json({error:String(e.message||e)},400)}
+  }
+  if(url.pathname==="/api/agent/repair" && request.method==="POST"){
+   try{const body=await request.json();const n=Number(body.pr);if(!Number.isSafeInteger(n)||n<1)return json({error:"Invalid PR"},400);return json(await repairFailedPR(env,n))}
    catch(e){return json({error:String(e.message||e)},400)}
   }
   if(url.pathname==="/api/agent/status" && request.method==="GET"){
