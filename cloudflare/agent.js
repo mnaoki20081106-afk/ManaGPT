@@ -34,6 +34,8 @@ export async function agentAction(env,body){
    return {...f,score};
  }).sort((a,b)=>b.score-a.score||a.path.localeCompare(b.path));
  const selected=ranked.slice(0,18);
+ if(!selected.length)throw Error("No readable source files found");
+
  const sources=await Promise.all(selected.map(async f=>{
    const d=await gh(env,root+"/contents/"+f.path+"?ref="+encodeURIComponent(base));
    try{
@@ -42,6 +44,9 @@ export async function agentAction(env,body){
    }catch{return {path:f.path,content:"[unreadable]"}}
  }));
  const manifest=ranked.slice(0,350).map(f=>f.path);
+ const contextChars=sources.reduce((n,f)=>n+f.content.length,0);
+ if(contextChars>90000)throw Error("Context exceeds safe model input budget; narrow the task");
+
  const instructions="You are a coding agent. Inspect provided files and repository manifest. If essential context is missing, return JSON {edits:[],reason:\"insufficient context\"} rather than guessing. Never claim tests passed without test output. Keep changes minimal and include relevant regression tests when possible.  Return ONLY a JSON object with an edits array of {path,content} (complete replacement file text). Modify at most 5 files. Use only paths from supplied files or add a new safe file. Do not edit workflows, secrets, or authentication. No markdown fences. No explanation.";
  const prompt=JSON.stringify({task:body.task,repository_files:manifest,files:sources,context_limit:"Only selected files have full contents. Do not invent facts about other files."});
  const response=await fetch("https://api.groq.com/openai/v1/chat/completions",{
@@ -52,9 +57,11 @@ export async function agentAction(env,body){
  let proposal;try{proposal=JSON.parse(raw)}catch{throw Error("AI returned invalid edit JSON")}
  if(Array.isArray(proposal.edits)&&proposal.edits.length===0)throw Error(proposal.reason||"Insufficient context to make a reliable change");
  if(!Array.isArray(proposal.edits)||proposal.edits.length>5)throw Error("Invalid number of edits");
+ const knownPaths=new Set(sources.map(f=>f.path));
+
  const seen=new Set();
  for(const e of proposal.edits){
-   if(!safePath(e.path)||typeof e.content!=="string"||e.content.length>80000||seen.has(e.path))throw Error("Unsafe edit proposal");
+   if(!safePath(e.path)||!knownPaths.has(e.path)||typeof e.content!=="string"||e.content.length>80000||seen.has(e.path))throw Error("Unsafe edit proposal");
    seen.add(e.path);
  }
  const branch="managpt/agent-"+crypto.randomUUID().slice(0,12);
