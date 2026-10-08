@@ -19,8 +19,8 @@
 
 ## STEP 2 — Cloudflare API Tokenを発行
 1. https://dash.cloudflare.com/profile/api-tokens を開く。
-2. Workersをデプロイできるテンプレート（例：Edit Cloudflare Workers）を選ぶ。
-3. **対象アカウントを限定**する。D1の作成・バインドに必要な権限も確認する。
+2. WorkersをデプロイできるAPI Tokenを作成する（Edit Cloudflare Workersなどをベースにする）。**Global API KeyではなくAPI Token**を使用する。
+3. **対象アカウントを限定**する。必要な権限はWorkersの作成・デプロイと **Account → D1 Edit**。新しいWorkerを作る場合はWorkers製品のAdmin権限が必要になる場合がある。
 4. 発行したAPI Tokenを安全に保管する。画面を閉じると再表示できないことがあります。
 
 ## STEP 3 — GitHub Actions Secretsを登録（現在の最優先）
@@ -31,15 +31,14 @@
 3. https://github.com/mnaoki20081106-afk/ManaGPT/actions/workflows/deploy-cloudflare.yml を開き、**Run workflow → Run workflow**。
 4. 緑色のチェックが付くまでログを確認。失敗したら原因を確認してから再実行。
 
-**注意：現行の `wrangler.jsonc` はD1の `database_id` を指定していません。** GitHub Secretsを登録するだけで必ずデプロイできるとは限りません。D1データベースの作成・設定が必要になる可能性があります。
+**2026-10-08修正：** ワークフローがCloudflare API Tokenを事前検証し、D1を自動検出・必要なら新規作成し、一時的なWrangler設定へ正しい `database_id` を注入します。GitHubでDatabase IDを手作業で編集する必要はありません。
 
-## STEP 4 — D1データベースを準備
-1. Cloudflareダッシュボードの **Storage & Databases → D1**（UIの表記は変わる場合あり）を開く。
-2. `managpt` というデータベースを作成する。すでに存在する場合は重複作成しない。
-3. 表示された **Database ID** を控える。
-4. GitHubの `wrangler.jsonc` の `d1_databases[0]` に、Cloudflareが発行した `database_id` を追加する（値は推測しない）。
-5. GitHub Actionsで再デプロイし、Workerの `DB` バインディングが `managpt` に紐付いていることを確認する。
-6. 会話用テーブルは、初回APIアクセス時にコード側で作成されます。D1の作成そのものは別作業です。
+## STEP 4 — D1データベース（自動準備）
+1. デプロイの `Check credentials and prepare D1 binding` ステップで、API Tokenの有効性を確認します。
+2. 同じCloudflareアカウントに `managpt` というD1データベースが存在する場合は再利用します。なければ作成します（D1 Edit権限が必要）。
+3. 発行されたDatabase IDは一時的な `wrangler.deploy.jsonc` に自動的に適用され、リポジトリには保存されません。
+4. Deploy Workerの成功後、CloudflareのWorkers設定で `DB` バインディングを確認してください。
+5. 会話用テーブルは、初回APIアクセス時にコード側で作成されます。
 
 ## STEP 5 — GroqのAPIキーを登録
 1. https://console.groq.com/keys でAPIキーを発行。
@@ -83,8 +82,8 @@
 - [x] リサーチUIと公開Web本文取得の試作
 - [x] Tor独立サーバーの試作コード
 - [x] 直近のNodeテストとAgent Quality Gateが成功
-- [ ] Cloudflare Secretsを登録しデプロイを成功させる
-- [ ] D1 Database IDとDBバインディングを確定する
+- [ ] Cloudflareの有効なAPI TokenへGitHub Secretを更新しデプロイを成功させる
+- [x] CIでD1の検出・作成・バインディング設定を自動化（本番未検証）
 - [ ] GroqモデルIDとAPIキーで本番チャットを検証する
 - [ ] iPhone Safariで複数チャット・履歴・ストリーミングのE2E確認
 - [ ] Webリサーチの本番APIキー・料金・品質・SSRF対策を確認
@@ -93,6 +92,8 @@
 - [ ] UIのアクセシビリティ・エラー復旧・連投防止を実機検証する
 
 ## トラブルシューティング
+- **Cloudflare 9109 `Invalid access token`**：Secretは読み込まれていますがCloudflareが認証できていません。Cloudflareで新しいAPI Tokenを発行し、GitHub Actionsの `CLOUDFLARE_API_TOKEN` を置き換えてください。値はチャットに貼らないでください。
+- **Cloudflare 10000/403**：Account IDと、そのアカウントに対するWorkersおよびD1の権限を確認。
 - **GitHub Actionsが失敗**：Actionsログの最初のエラーを確認。Secrets未登録、D1設定、API Token権限を順に点検。
 - **401 Unauthorized**：アクセス用トークンを確認。
 - **503**：CloudflareのSecretまたはDBバインディング不足。
