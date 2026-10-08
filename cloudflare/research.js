@@ -22,7 +22,7 @@ export async function fetchAllowlistedPage(url,allowedHosts){
  const response=await fetch(url,{redirect:"manual",headers:{"Accept":"text/html","User-Agent":"manaGPT-research/1.0"},signal:AbortSignal.timeout(6000)});
  if(!response.ok||response.status>=300)throw Error("Page unavailable");
  const type=response.headers.get("content-type")||"";
- if(!/^text\\/html(?:;|$)/i.test(type))throw Error("Unsupported page content type");
+ if(!type.toLowerCase().startsWith("text/html"))throw Error("Unsupported page content type");
  const length=Number(response.headers.get("content-length")||0);
  if(length>150000)throw Error("Page too large");
  const reader=response.body?.getReader();if(!reader)throw Error("Empty page");
