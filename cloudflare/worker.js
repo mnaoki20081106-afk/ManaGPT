@@ -1,4 +1,5 @@
 import {research} from "./research.js";
+import {conversations} from "./chat_sessions.js";
 import {repairFailedPR} from "./repair.js";
 import {agentAction,agentStatus,gh} from "./agent.js";
 // manaGPT Cloudflare Worker: private, serverless, D1-backed chat.
@@ -31,6 +32,7 @@ export default {
   if(!env.MANAGPT_ACCESS_TOKEN || !env.GROQ_API_KEY || !env.DB) return json({error:"Configure MANAGPT_ACCESS_TOKEN, GROQ_API_KEY and DB first"},503);
   const token=request.headers.get("Authorization")?.replace(/^Bearer /,"");
   if(!token || token!==env.MANAGPT_ACCESS_TOKEN) return json({error:"Unauthorized"},401);
+  if(url.pathname.startsWith("/api/conversations"))return conversations(request,env,url);
   if(url.pathname==="/api/research" && request.method==="POST"){
    try{return json(await research(env,await request.json()))}
    catch(e){return json({error:String(e.message||e)},400)}
