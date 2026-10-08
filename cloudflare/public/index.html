@@ -7,7 +7,7 @@
 </details><details style="margin:15px 0;background:#202b3c;padding:14px;border-radius:12px"><summary>出典付きWebリサーチ</summary>
 <p>公開Webを検索し、検索結果の抜粋に基づいて回答します。ページ本文の検証やTor接続は行いません。</p>
 <textarea id="research-query" placeholder="調べたいことを入力（例: Torのオニオンサービスとは？）"></textarea>
-<button type="button" id="research-submit" onclick="runResearch()">調査する</button>
+<label style="display:block;margin:8px 0"><input id="research-deep" type="checkbox"> 詳しく調査（検索2回・情報源を比較）</label><button type="button" id="research-submit" onclick="runResearch()">調査する</button>
 <p id="research-answer" style="white-space:pre-wrap;overflow-wrap:anywhere" aria-live="polite"></p>
 <ol id="research-sources"></ol><small id="research-note"></small>
 </details><section id="chat"></section><form id="form"><textarea id="message" placeholder="メッセージを入力" required></textarea><button id="send">送信</button></form></main><script>
@@ -47,7 +47,7 @@ async function runResearch(){
  if(query.length<3){answer.textContent="3文字以上入力してください";return}
  btn.disabled=true;answer.textContent="検索・調査中…";list.replaceChildren();note.textContent="";
  try{
-  const d=await api("research",{method:"POST",body:JSON.stringify({query})});
+  const d=await api("research",{method:"POST",body:JSON.stringify({query,deep:document.querySelector("#research-deep").checked})});
   answer.textContent=d.answer;
   for(const source of d.sources||[]){
    const li=document.createElement("li"),a=document.createElement("a");
@@ -55,7 +55,7 @@ async function runResearch(){
    a.textContent="["+source.id+"] "+source.title;
    li.append(a,document.createTextNode(" — "+source.description));list.append(li);
   }
-  note.textContent="検索結果の抜粋に基づく回答です。全文確認・独立検証は行っていません。";
+  note.textContent=(d.citation_valid?"引用番号は検証済み。":"引用番号の検証ができませんでした。")+" 検索"+d.searches+"回。検索結果の抜粋に基づく回答で、全文確認・独立検証は行っていません。";
  }catch(e){answer.textContent="調査失敗: "+e.message}
  finally{btn.disabled=false}
 }
