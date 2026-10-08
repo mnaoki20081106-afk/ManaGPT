@@ -16,6 +16,10 @@ dev = ["pytest>=8", "httpx>=0.27"]
 [project.scripts]
 managpt = "managpt.cli:main"
 
+[tool.setuptools.packages.find]
+include = ["managpt*"]
+exclude = ["cloudflare*", "tests*"]
+
 [tool.setuptools.package-data]
 managpt = ["static/*.html"]
 
