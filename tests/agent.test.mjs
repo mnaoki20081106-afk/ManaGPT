@@ -27,6 +27,19 @@ test("health and auth do not expose private endpoints",async()=>{
  const unauth=await worker.fetch(new Request("https://test/api/history"),env);
  assert.equal(unauth.status,401);
 });
+test("authenticated model endpoint reports the real provider and never leaks API keys",async()=>{
+ const env={MANAGPT_ACCESS_TOKEN:"access-token",GROQ_API_KEY:"private-groq-key",DB:{}};
+ const unauth=await worker.fetch(new Request("https://test/api/model"),env);
+ assert.equal(unauth.status,401);
+ const res=await worker.fetch(new Request("https://test/api/model",
+   {headers:{Authorization:"Bearer access-token"}}),env);
+ assert.equal(res.status,200);
+ const data=await res.json();
+ assert.equal(data.provider,"groq");
+ assert.equal(data.fallback,true);
+ assert.equal(data.model,"qwen/qwen3.8-27b");
+ assert.ok(!JSON.stringify(data).includes("private-groq-key"));
+});
 test("missing CI checks are not a pass",async()=>{
  const original=globalThis.fetch;
  globalThis.fetch=async url=>{
