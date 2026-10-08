@@ -7,6 +7,7 @@ from .config import Config
 from .store import Store
 from .ollama_api import OllamaProvider, Part
 from .provider import OpenAICompatibleProvider
+from .local_model import LocalHFProvider
 
 
 class Agent:
@@ -14,6 +15,8 @@ class Agent:
         self.config, self.store = config, store
         if provider is not None:
             self.provider = provider
+        elif config.provider == "local":
+            self.provider = LocalHFProvider(config.weights_path, config.temperature, config.max_new_tokens)
         elif config.provider == "ollama":
             self.provider = OllamaProvider(config.ollama_host, config.num_ctx, config.temperature)
         elif config.provider in ("groq", "openrouter", "openai-compatible"):
