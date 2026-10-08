@@ -5,7 +5,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import pytest
 from fastapi.testclient import TestClient
 
-from managpt.config import Config
+from managpt.config import Config, TARGET_MODEL
 from managpt.core import Agent
 from managpt.ollama_api import OllamaError, OllamaProvider, Part
 from managpt.store import Store
@@ -71,7 +71,7 @@ def test_failed_or_empty_turn_is_not_committed(world):
 def test_store_clear_and_reopen(tmp_path):
     path = str(tmp_path / 'db.sqlite3')
     store = Store(path)
-    sid = store.new_session('qwen3:8b')['id']
+    sid = store.new_session(TARGET_MODEL)['id']
     store.save_turn(sid, 'A', 'B')
     store.close()
     store = Store(path)
@@ -85,18 +85,20 @@ def test_store_clear_and_reopen(tmp_path):
     store.close()
 
 
-def test_history_limit_and_model_switch(world):
+def test_history_limit_and_fixed_model(world):
     agent, store, provider = world
-    sid = store.new_session('qwen3:8b')['id']
+    sid = store.new_session(TARGET_MODEL)['id']
     for i in range(25):
         store.save_turn(sid, f'Q{i}', f'A{i}')
     history = agent.messages_for(sid, 'latest')
     assert len(history) == 42  # 40 prior + system + new
     assert history[1]['content'] == 'Q5'
     assert history[-1]['content'] == 'latest'
-    store.update(sid, model='qwen3.8:27b')
+    with pytest.raises(ValueError, match='Only Huihui'):
+        store.update(sid, model='other-model')
+    assert store.session(sid)['model'] == TARGET_MODEL
     list(agent.stream(sid, 'now'))
-    assert provider.calls[-1][0] == 'qwen3.8:27b'
+    assert provider.calls[-1][0] == TARGET_MODEL
 
 
 def test_web_api_and_static_html(world):
@@ -106,7 +108,8 @@ def test_web_api_and_static_html(world):
     assert r.status_code == 200 and 'manaGPT' in r.text
     session = client.post('/api/sessions').json()
     sid = session['id']
-    assert client.patch(f'/api/sessions/{sid}', json={'model': 'qwen3:8b', 'thinking': True}).status_code == 200
+    assert client.patch(f'/api/sessions/{sid}', json={'model': TARGET_MODEL, 'thinking': True}).status_code == 200
+    assert client.patch(f'/api/sessions/{sid}', json={'model': 'other-model'}).status_code == 400
     r = client.post('/api/chat', json={'session_id': sid, 'message': 'hola'})
     assert r.status_code == 200
     lines = [json.loads(line) for line in r.text.strip().splitlines()]
@@ -122,7 +125,7 @@ def test_web_api_and_static_html(world):
 
 def test_web_stream_error_does_not_save(world):
     agent, store, provider = world
-    sid = store.new_session('qwen3:8b')['id']
+    sid = store.new_session(TARGET_MODEL)['id']
     provider.fail = True
     r = TestClient(create_app(agent.config, agent)).post('/api/chat',
                                        json={'session_id': sid, 'message': 'test'})
@@ -148,10 +151,10 @@ def test_ollama_http_protocol():
     worker.start()
     try:
         provider = OllamaProvider(f'http://127.0.0.1:{server.server_port}')
-        assert list(provider.stream('qwen3.8:27b', [{'role':'user','content':'hi'}], True)) == [
+        assert list(provider.stream(TARGET_MODEL, [{'role':'user','content':'hi'}], True)) == [
             Part('thinking','why'), Part('content','answer')]
         assert server.request_body['think'] is True
-        assert server.request_body['model'] == 'qwen3.8:27b'
+        assert server.request_body['model'] == TARGET_MODEL
         assert server.request_body['options']['num_ctx'] == 8192
     finally:
         server.shutdown()

@@ -15,6 +15,6 @@
   ],
   "triggers": {"crons": ["*/15 * * * *"]},
   "vars": {
-    "MANAGPT_MODEL": "cooperleong00/Qwen3-8B-Jailbroken"
+    "MANAGPT_MODEL": "huihui-ai/Huihui-Qwen3-Coder-Next-abliterated"
   }
 }

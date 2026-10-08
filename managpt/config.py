@@ -5,6 +5,8 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
+TARGET_MODEL = "huihui-ai/Huihui-Qwen3-Coder-Next-abliterated"
+
 DEFAULT_PROMPT = (
     "You are manaGPT, a clear, capable, direct AI assistant. "
     "Respond in the user's language. Be accurate, admit uncertainty, "
@@ -15,7 +17,7 @@ DEFAULT_PROMPT = (
 
 @dataclass(frozen=True)
 class Config:
-    model: str = "cooperleong00/Qwen3-8B-Jailbroken"
+    model: str = TARGET_MODEL
     provider: str = "openai-compatible"
     api_key: str = ""
     api_base_url: str = ""
@@ -33,7 +35,7 @@ class Config:
         if prompt_file:
             prompt = Path(prompt_file).read_text(encoding="utf-8")
         return cls(
-            model=os.getenv("MANAGPT_MODEL", cls.model),
+            model=TARGET_MODEL,
             provider=os.getenv("MANAGPT_PROVIDER", cls.provider).lower(),
             api_key=os.getenv("MANAGPT_API_KEY", ""),
             api_base_url=os.getenv("MANAGPT_API_BASE_URL", cls.api_base_url),

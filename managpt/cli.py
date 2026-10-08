@@ -13,7 +13,7 @@ from .store import Store
 HELP = """Commands:
   /help              show commands
   /think             toggle reasoning
-  /model <model>     set chat model (e.g. cooperleong00/Qwen3-8B-Jailbroken)
+  /model             show the fixed Huihui model
   /context <text>    set project context
   /role <text>       set assistant role
   /history           print conversation so far
@@ -45,10 +45,7 @@ def run_cli(agent: Agent, sid: str) -> None:
                 old = agent.store.session(sid)["thinking"]
                 print("thinking:", "ON" if agent.store.update(sid, thinking=not old)["thinking"] else "OFF")
             elif cmd == "/model":
-                if not arg.strip():
-                    print("model:", agent.store.session(sid)["model"])
-                else:
-                    print("model:", agent.store.update(sid, model=arg.strip())["model"])
+                print("model:", agent.config.model, "(fixed)")
             elif cmd in ("/role", "/context"):
                 key = "role" if cmd == "/role" else "project_context"
                 if arg.strip():
@@ -84,7 +81,7 @@ def run_cli(agent: Agent, sid: str) -> None:
                 for i in range(0, len(history), 2):
                     agent.store.save_turn(sid, history[i]["content"], history[i+1]["content"])
                 settings = data.get("session", {})
-                for key in ("model", "role", "project_context", "thinking"):
+                for key in ("role", "project_context", "thinking"):
                     if key in settings:
                         agent.store.update(sid, **{key: settings[key]})
                 print("loaded:", len(history), "messages")
@@ -105,7 +102,7 @@ def run_cli(agent: Agent, sid: str) -> None:
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(description="manaGPT: Qwen3-8B-Jailbroken assistant")
+    parser = argparse.ArgumentParser(description="manaGPT: Huihui Qwen3 Coder Next assistant")
     subs = parser.add_subparsers(dest="command")
     subs.add_parser("cli")
     web = subs.add_parser("web", help="launch browser chat (localhost only by default)")

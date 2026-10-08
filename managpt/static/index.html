@@ -29,7 +29,7 @@ dialog::backdrop{background:#0009}label{display:block;font-weight:600;margin:12p
 <div class="actions"><button id="new" title="新規チャット">＋ 新規</button><button id="export" title="引き継ぎJSONを保存">書き出し</button><button id="settings">設定</button></div></header>
 <main><section id="messages" aria-live="polite"><div class="empty" id="empty"><b>manaGPT</b>あなたのQwen AIと会話を始めよう。</div></section>
 <footer><div class="composer"><textarea id="prompt" rows="1" placeholder="メッセージを入力… (Shift+Enterで改行)"></textarea><button id="send">送信</button></div><div class="note" id="status">ローカルのOllamaに接続します。会話は端末内のSQLiteに保存されます。</div></footer></main>
-<dialog id="prefs"><h2 style="margin-top:0">AIの設定</h2><label for="model">モデルID</label><input type="text" id="model" placeholder="cooperleong00/Qwen3-8B-Jailbroken" />
+<dialog id="prefs"><h2 style="margin-top:0">AIの設定</h2><label for="model">モデルID</label><input type="text" id="model" value="huihui-ai/Huihui-Qwen3-Coder-Next-abliterated" readonly aria-readonly="true" />
 <label for="role">役割</label><input type="text" id="role" placeholder="expert AI assistant" />
 <label for="context">プロジェクトの説明</label><textarea id="context" rows="4" style="width:100%;background:#0d1118;border:1px solid #283548;border-radius:8px;color:white;padding:10px"></textarea>
 <label class="check"><input type="checkbox" id="thinking"> 思考モードを使う</label>
@@ -86,7 +86,7 @@ $('#new').onclick=async()=>{if(busy)return;try{const x=await api('/api/sessions'
 $('#export').onclick=async()=>{try{const x=await api('/api/sessions/'+encodeURIComponent(sid)+'/export');const blob=new Blob([JSON.stringify(x,null,2)],{type:'application/json'});const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download='managpt_handoff.json';a.click();URL.revokeObjectURL(u)}catch(e){status(e.message)}};
 $('#settings').onclick=async()=>{try{const x=(await api('/api/sessions/'+encodeURIComponent(sid))).session;$('#model').value=x.model;$('#role').value=x.role;$('#context').value=x.project_context;$('#thinking').checked=x.thinking;$('#prefs').showModal()}catch(e){status(e.message)}};
 $('#cancel').onclick=()=>$('#prefs').close();
-$('#save').onclick=async()=>{try{await api('/api/sessions/'+encodeURIComponent(sid),{method:'PATCH',body:JSON.stringify({model:$('#model').value.trim(),role:$('#role').value.trim(),project_context:$('#context').value,thinking:$('#thinking').checked})});$('#prefs').close();status('設定を保存しました')}catch(e){status(e.message)}};
+$('#save').onclick=async()=>{try{await api('/api/sessions/'+encodeURIComponent(sid),{method:'PATCH',body:JSON.stringify({role:$('#role').value.trim(),project_context:$('#context').value,thinking:$('#thinking').checked})});$('#prefs').close();status('設定を保存しました')}catch(e){status(e.message)}};
 init();
 </script>
 </body>

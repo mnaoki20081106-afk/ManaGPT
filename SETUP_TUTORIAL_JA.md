@@ -5,7 +5,7 @@
 ## まず用意するもの
 - GitHubアカウント（このリポジトリを編集できる権限）
 - Cloudflareアカウント（無料枠から開始可能）
-- 指定モデルを動かす場合はFeatherless APIキー、または自前GPU推論サーバーとHTTPSエンドポイント
+- 指定モデルを動かす場合は80Bモデル対応のGPU推論サーバーとHTTPSエンドポイント
 - Webリサーチを使うなら Brave Search APIキー
 - GitHub開発エージェントを使うなら GitHub Personal Access Token（対象リポジトリに限定）
 - iPhoneのSafari（Cloudflare / GitHubのデスクトップ表示に切り替えると設定しやすい場合があります）
@@ -40,15 +40,16 @@
 4. Deploy Workerの成功後、CloudflareのWorkers設定で `DB` バインディングを確認してください。
 5. 会話用テーブルは、初回APIアクセス時にコード側で作成されます。
 
-## STEP 5 — モデルAPIを選択する
-1. **まず復旧するだけなら：** 従来の `GROQ_API_KEY` をCloudflareに残しておけば、以前のGroqモデルを使ってチャット・リサーチ・コーディング機能を利用できます。画面に **Groq（従来モデル）** と表示されます。この方式は指定のJailbrokenモデルではありません。
-2. **指定モデルに切り替える最短方法：** [Featherless](https://featherless.ai/models/cooperleong00/Qwen3-8B-Jailbroken)で登録し、[API Keys](https://featherless.ai/account/api-keys)からキーを発行。料金と対象モデルの利用資格を確認します。
-3. Cloudflare **Workers & Pages → managpt → Settings → Variables and Secrets** に `FEATHERLESS_API_KEY` を **Secret** として追加します。既存の `MANAGPT_ACCESS_TOKEN`、D1のバインディング、`GROQ_API_KEY` は削除不要です。両方ある場合はFeatherlessを優先します。
-4. **別の選択肢：** GPU上のvLLM等で [cooperleong00/Qwen3-8B-Jailbroken](https://huggingface.co/cooperleong00/Qwen3-8B-Jailbroken) をデプロイし、`MANAGPT_INFERENCE_BASE_URL=https://YOUR-ENDPOINT/v1` と `MANAGPT_INFERENCE_API_KEY` をCloudflareに設定します。完全に設定された自前エンドポイントが最優先です。
-5. `MANAGPT_MODEL` は既定で `cooperleong00/Qwen3-8B-Jailbroken` です。ただしGroq互換モードでは、Groqに実際に存在する従来モデルID `qwen/qwen3.8-27b` を使用します（必要なら `MANAGPT_GROQ_MODEL` で変更）。
-6. 設定後、ManaGPTに再接続し「設定・接続 → 現在の推論モデル」で実際の使用モデルを確認してください。
+## STEP 5 — Huihui専用推論サーバーを設定
 
-> **重要：** Hugging Faceモデルの公開ページだけではAPIは提供されません。Featherlessなどの推論サービスは独立した認証が必要です。料金のあるサービスへ自動で登録・課金する処理は実装していません。
+1. [Huihui-Qwen3-Coder-Next-abliterated](https://huggingface.co/huihui-ai/Huihui-Qwen3-Coder-Next-abliterated) は80Bモデルです。公開Inference Providerには配備されていません。正確なモデルを実行できるGPUサーバーとOpenAI互換APIが必要です。
+2. Cloudflare → Workers & Pages → managpt → Settings → Variables and Secrets に以下を設定します。
+   - `MANAGPT_INFERENCE_BASE_URL`: 認証付きHTTPS APIのルート（例 `https://YOUR-SERVER/v1`）
+   - `MANAGPT_INFERENCE_API_KEY`: API用Secret
+   - `MANAGPT_ACCESS_TOKEN`: 既存のManaGPTログイン用Secret
+3. `MANAGPT_MODEL`は`wrangler.jsonc`で `huihui-ai/Huihui-Qwen3-Coder-Next-abliterated` に設定済みです。別モデルへの切り替え機能はありません。
+4. 旧Groq・FeatherlessのAPIキーは推論に使用しません。画像付きの入力は未対応です。推論先未設定の場合は503エラーとなり、旧モデルを呼び出しません。
+5. モデルが読み込まれたサーバーに接続した後、ManaGPTの「現在の推論モデル」を確認し、チャット、Webリサーチ、コーディングモードを試してください。
 
 ## STEP 6 — Safariで接続
 1. Cloudflareで `managpt` Workerの `*.workers.dev` URLを確認。
@@ -86,7 +87,7 @@
 - [x] 直近のNodeテストとAgent Quality Gateが成功
 - [x] Cloudflareのデプロイ実行を成功させる（2026-10-08の既存チェック）
 - [x] CIでD1の検出・作成・バインディング設定を自動化（本番未検証）
-- [ ] Featherlessまたは専用エンドポイントの認証をCloudflareに設定し、指定モデルで本番チャットを検証する
+- [ ] Huihui 80Bを提供する専用エンドポイントを設定し、本番チャットを検証する
 - [ ] iPhone Safariで複数チャット・履歴・ストリーミングのE2E確認
 - [ ] Webリサーチの本番APIキー・料金・品質・SSRF対策を確認
 - [ ] Torを安全に隔離した環境で起動し、漏洩テストを行う
@@ -99,9 +100,9 @@
 - **GitHub Actionsが失敗**：Actionsログの最初のエラーを確認。Secrets未登録、D1設定、API Token権限を順に点検。
 - **401 Unauthorized**：アクセス用トークンを確認。
 - **503**：CloudflareのSecretまたはDBバインディング不足。
-- **502**：利用中のモデルプロバイダー（Groq/Featherless/専用GPU）、認証トークン、プラン、モデルIDを確認。
+- **502**：Huihui推論サーバーの認証トークン、稼働、モデルID、ストリーミング応答を確認。
 - **会話が保存されない**：D1の `DB` バインディングとWorkerログを確認。
 - **ストリーミングが止まる**：使用中の推論APIのレスポンス、Workerログ、ネットワークを確認。中断した応答は保存されない場合があります。
 
 ## 料金の目安
-無料枠から開始できますが、Cloudflare Workers/D1・Brave Searchにはそれぞれ利用制限があります。指定モデルをホストするGPUには別途費用がかかることがあります。料金体系は変更されるため、最新条件を確認してください。Torサイドカーも別途ホスティングが必要になる場合があります。
+Cloudflare Workers/D1・Brave Searchには利用制限があります。80BモデルのGPUホスティングには費用が発生する場合があります。料金体系は変更されるため、最新条件を確認してください。Torサイドカーも別途ホスティングが必要になる場合があります。

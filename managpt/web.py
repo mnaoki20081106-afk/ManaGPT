@@ -55,6 +55,8 @@ def create_app(config: Config | None = None, agent: Agent | None = None) -> Fast
         updates = settings.model_dump(exclude_none=True)
         if not updates:
             raise HTTPException(status_code=400, detail="No settings provided")
+        if "model" in updates and updates["model"] != config.model:
+            raise HTTPException(status_code=400, detail="Only Huihui-Qwen3-Coder-Next-abliterated is supported")
         return agent.store.update(sid, **updates)
 
     @app.delete("/api/sessions/{sid}/messages")
