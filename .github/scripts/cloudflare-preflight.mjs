@@ -60,7 +60,18 @@ export async function cloudflareRequest(fetchFn, token, endpoint, options = {}) 
 
 export async function prepareDeployment({token, accountId, fetchFn = fetch, readFile = fs.readFile, writeFile = fs.writeFile}) {
   validateCredentials(token, accountId);
-  const verification = await cloudflareRequest(fetchFn, token, "/user/tokens/verify");
+  // Cloudflare has account-owned and user-owned tokens, each with its own verify endpoint.
+  let verification;
+  try {
+    verification = await cloudflareRequest(fetchFn, token, "/accounts/" + accountId + "/tokens/verify");
+  } catch (accountError) {
+    if (!/INVALID|permission denied/.test(accountError.message)) throw accountError;
+    try {
+      verification = await cloudflareRequest(fetchFn, token, "/user/tokens/verify");
+    } catch (userError) {
+      throw Error("Cloudflare rejected this token on both account and user verification endpoints. Replace CLOUDFLARE_API_TOKEN with a fresh active API Token scoped to your Cloudflare account.");
+    }
+  }
   if (verification?.status !== "active") throw Error("Cloudflare API Token is not active. Issue a new API Token.");
   console.log("Cloudflare API Token: active (token value hidden)");
 
