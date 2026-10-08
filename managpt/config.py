@@ -15,7 +15,7 @@ DEFAULT_PROMPT = (
 
 @dataclass(frozen=True)
 class Config:
-    model: str = "qwen3.8:27b"
+    model: str = "qwen/qwen3.8-27b"\n    provider: str = "groq"\n    api_key: str = ""\n    api_base_url: str = "https://api.groq.com/openai/v1"
     ollama_host: str = "http://127.0.0.1:11434"
     database_path: str = "managpt.db"
     system_prompt: str = DEFAULT_PROMPT
@@ -30,7 +30,7 @@ class Config:
         if prompt_file:
             prompt = Path(prompt_file).read_text(encoding="utf-8")
         return cls(
-            model=os.getenv("MANAGPT_MODEL", cls.model),
+            model=os.getenv("MANAGPT_MODEL", cls.model),\n            provider=os.getenv("MANAGPT_PROVIDER", cls.provider).lower(),\n            api_key=os.getenv("MANAGPT_API_KEY", ""),\n            api_base_url=os.getenv("MANAGPT_API_BASE_URL", cls.api_base_url),
             ollama_host=os.getenv("OLLAMA_HOST", cls.ollama_host).rstrip("/"),
             database_path=os.getenv("MANAGPT_DB", cls.database_path),
             system_prompt=prompt,
