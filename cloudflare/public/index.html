@@ -3,13 +3,14 @@
 <textarea id="agent-task" placeholder="例: テストの失敗を修正して"></textarea>
 <button type="button" onclick="runAgent()">修正案を作成</button>
 <p id="agent-result" style="white-space:pre-wrap;overflow-wrap:anywhere"></p>
+<div id="agent-controls" hidden><button type="button" onclick="inspectPR()">テスト確認</button><button type="button" onclick="repairPR()">失敗をAIで修正</button><span id="agent-checks"></span></div>
 </details><section id="chat"></section><form id="form"><textarea id="message" placeholder="メッセージを入力" required></textarea><button id="send">送信</button></form></main><script>
 let secret=sessionStorage.getItem("mana-token")||"";const chat=document.querySelector("#chat"),status=document.querySelector("#status");
 function show(role,content){const e=document.createElement("article");e.className=role==="user"?"me":"";e.textContent=(role==="user"?"あなた: ":"manaGPT: ")+content;chat.append(e);e.scrollIntoView()}
 async function api(path,options={}){const r=await fetch("/api/"+path,{...options,headers:{"Authorization":"Bearer "+secret,"Content-Type":"application/json"}});const d=await r.json();if(!r.ok)throw Error(d.error||"HTTP "+r.status);return d}
 async function login(){secret=document.querySelector("#token").value;sessionStorage.setItem("mana-token",secret);try{const d=await api("history");chat.replaceChildren();d.messages.forEach(m=>show(m.role,m.content));status.textContent="接続済み";document.querySelector("#login").hidden=true;document.querySelector("#setup").hidden=true}catch(e){status.textContent=e.message}}
 async function checkSetup(){const label=document.querySelector("#setup-result");label.textContent="接続確認中…";try{const r=await fetch("/health");const d=await r.json();if(!d.ok)throw Error("サーバー応答エラー");label.textContent="サイトは起動しています。Secretを登録したら、アクセス用トークンで接続してください。";}catch(e){label.textContent="接続に失敗しました: "+e.message}}
-async function runAgent(){
+let activePR=0;\nasync function runAgent(){
  const task=document.querySelector("#agent-task").value.trim(),el=document.querySelector("#agent-result");
  if(task.length<5){el.textContent="指示を5文字以上入力してください";return}
  if(!confirm("GitHubに新しいブランチとPRを作成します。続けますか？"))return;
@@ -17,8 +18,20 @@ async function runAgent(){
  try{const d=await api("agent/run",{method:"POST",body:JSON.stringify({task})});
  el.replaceChildren();
  const a=document.createElement("a");a.href=d.pr_url;a.target="_blank";a.rel="noopener";a.textContent="Pull Request #"+d.pr_number+" を開く";
- el.append(a,document.createTextNode("\n変更ファイル: "+d.files.map(f=>f.path).join(", ")+"\nテスト結果はPRのChecksを確認してください。"));
+ el.append(a,document.createTextNode("\n変更ファイル: "+d.files.map(f=>f.path).join(", ")+"\nテスト結果はPRのChecksを確認してください。"));\n activePR=d.pr_number;document.querySelector("#agent-controls").hidden=false;
  }catch(e){el.textContent="失敗: "+e.message}
+}
+async function inspectPR(){
+ const el=document.querySelector("#agent-checks");if(!activePR)return;
+ el.textContent=" 確認中…";
+ try{const d=await api("agent/status?pr="+activePR);el.textContent=" "+d.checks.map(c=>c.name+": "+(c.conclusion||c.status)).join(" / ")}
+ catch(e){el.textContent=" "+e.message}
+}
+async function repairPR(){
+ if(!activePR)return;if(!confirm("失敗したテストの修正案を生成して同じPRにpushしますか？"))return;
+ const el=document.querySelector("#agent-checks");el.textContent=" 修正中…";
+ try{const d=await api("agent/repair",{method:"POST",body:JSON.stringify({pr:activePR})});el.textContent=" "+d.message}
+ catch(e){el.textContent=" "+e.message}
 }
 function logout(){sessionStorage.removeItem("mana-token");location.reload()}
 document.querySelector("#form").onsubmit=async e=>{e.preventDefault();const box=document.querySelector("#message"),message=box.value.trim();if(!message)return;box.value="";show("user",message);document.querySelector("#send").disabled=true;status.textContent="生成中…";try{const d=await api("chat",{method:"POST",body:JSON.stringify({message})});show("assistant",d.answer);status.textContent="接続済み"}catch(err){status.textContent=err.message}finally{document.querySelector("#send").disabled=false}};
