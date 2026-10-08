@@ -34,5 +34,8 @@ Use a fixed evaluation set of 30+ queries spanning multi-source verification, da
 1. Deploy Cloudflare Worker (requires CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID in GitHub Actions secrets).
 2. Set Cloudflare Worker Secrets GROQ_API_KEY, MANAGPT_ACCESS_TOKEN, and BRAVE_SEARCH_API_KEY.
 3. Set GITHUB_TOKEN and GITHUB_REPOSITORY to enable the separate coding agent.
-4. Run one live public-web query; verify the citation URLs, response quality, and billing limits.
+4. Run one live public-web query with full-text enabled; verify the citation URLs, response quality, and billing limits.
 5. Do not advertise onion access as live until the isolated Tor connector passes egress isolation tests.
+
+## Full-text network boundaries
+The reader only accepts HTTPS URLs returned by the search provider, rejects localhost, private IP literals, custom ports, credentials, redirects and non-HTML content, and caps response size and duration. It does not resolve and verify DNS addresses before connecting, so it is not a general-purpose hardened SSRF sandbox. Do not add arbitrary user-supplied URL fetching without stronger network isolation.
