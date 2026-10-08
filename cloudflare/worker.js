@@ -1,5 +1,5 @@
 import {research} from "./research.js";
-import {inferenceReady,requestInference} from "./inference.js";
+import {inferenceReady,inferenceStatus,requestInference} from "./inference.js";
 import {conversations} from "./chat_sessions.js";
 import {repairFailedPR} from "./repair.js";
 import {agentAction,agentStatus,gh} from "./agent.js";
@@ -36,13 +36,14 @@ export default {
   if(!env.MANAGPT_ACCESS_TOKEN || !env.DB) return json({error:"Configure MANAGPT_ACCESS_TOKEN and DB first"},503);
   const token=request.headers.get("Authorization")?.replace(/^Bearer /,"");
   if(!token || token!==env.MANAGPT_ACCESS_TOKEN) return json({error:"Unauthorized"},401);
+  if(url.pathname==="/api/model" && request.method==="GET")return json(inferenceStatus(env));
   if(url.pathname.startsWith("/api/github/"))return githubSettings(request,env,url);
   if(url.pathname.startsWith("/api/conversations")){
-   if(url.pathname.endsWith("/messages")&&!inferenceReady(env))return json({error:"Configure dedicated Qwen inference endpoint first"},503);
+   if(url.pathname.endsWith("/messages")&&!inferenceReady(env))return json({error:"Configure FEATHERLESS_API_KEY to use Qwen3-8B-Jailbroken, or GROQ_API_KEY to restore previous chat"},503);
    return conversations(request,env,url);
   }
   if(url.pathname==="/api/research" && request.method==="POST"){
-   if(!inferenceReady(env))return json({error:"Configure dedicated Qwen inference endpoint first"},503);
+   if(!inferenceReady(env))return json({error:"Configure FEATHERLESS_API_KEY to use Qwen3-8B-Jailbroken, or GROQ_API_KEY to restore previous chat"},503);
    try{return json(await research(env,await request.json()))}
    catch(e){return json({error:String(e.message||e)},400)}
   }
@@ -66,7 +67,7 @@ export default {
    return json({messages:results.reverse()});
   }
   if(url.pathname==="/api/chat" && request.method==="POST"){
-   if(!inferenceReady(env))return json({error:"Configure dedicated Qwen inference endpoint first"},503);
+   if(!inferenceReady(env))return json({error:"Configure FEATHERLESS_API_KEY to use Qwen3-8B-Jailbroken, or GROQ_API_KEY to restore previous chat"},503);
    let body;try{body=await request.json()}catch{return json({error:"Invalid JSON"},400)}
    const prompt=body.message;
    if(typeof prompt!=="string" || !prompt.trim() || prompt.length>12000)return json({error:"Message must be 1–12000 characters"},400);
