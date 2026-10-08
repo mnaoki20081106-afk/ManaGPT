@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {safePath,agentAction,agentStatus} from "../cloudflare/agent.js";
 import {repairFailedPR} from "../cloudflare/repair.js";
 import worker from "../cloudflare/worker.js";
-import {research,citationIds,publicSource} from "../cloudflare/research.js";
+import {research,citationIds,publicSource,extractPageText,fetchAllowlistedPage} from "../cloudflare/research.js";
 
 test("unsafe paths are rejected",()=>{
  for(const p of ["../secret",".env","node_modules/a.js",".github/workflows/evil.yml","/root/x"]){
@@ -86,5 +86,32 @@ test("deep research uses two searches and deduplicates sources",async()=>{
   assert.equal(result.sources.length,1);
   assert.equal(result.citation_valid,true);
   assert.equal(result.sources[0].url,"https://example.org/a");
+ }finally{globalThis.fetch=original}
+});
+
+test("HTML extraction removes active content and navigation",()=>{
+ const text=extractPageText("<html><script>evil()</script><nav>Menu</nav><main><h1>Research</h1><p>Facts &amp; sources</p></main></html>");
+ assert.equal(text.includes("evil"),false);
+ assert.equal(text.includes("Menu"),false);
+ assert.match(text,/Research Facts & sources/);
+});
+test("full text rejects unapproved hosts before network access",async()=>{
+ await assert.rejects(fetchAllowlistedPage("https://example.org/article",new Set(["trusted.org"])),/allowlisted/);
+});
+test("research reads only explicitly allowed HTML pages",async()=>{
+ const original=globalThis.fetch;let pages=0;
+ globalThis.fetch=async url=>{
+  if(String(url).includes("search.brave.com"))return new Response(JSON.stringify({web:{results:[
+   {title:"Trusted",url:"https://trusted.org/a",description:"Excerpt"},
+   {title:"Other",url:"https://other.org/b",description:"Excerpt"}
+  ]}}));
+  if(String(url).includes("trusted.org")){pages++;return new Response("<html><main><p>"+("Verified text ".repeat(20))+"</p></main></html>",{headers:{"content-type":"text/html"}})}
+  return new Response(JSON.stringify({choices:[{message:{content:"Evidence [1]"}}]}));
+ };
+ try{
+  const result=await research({GROQ_API_KEY:"test",BRAVE_SEARCH_API_KEY:"test",RESEARCH_FULLTEXT_HOSTS:"trusted.org"},{query:"research privacy",fulltext:true});
+  assert.equal(pages,1);
+  assert.equal(result.fulltext_count,1);
+  assert.equal(result.sources[1].page_text,undefined);
  }finally{globalThis.fetch=original}
 });
