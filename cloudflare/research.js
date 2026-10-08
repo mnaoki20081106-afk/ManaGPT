@@ -15,10 +15,10 @@ export const extractPageText = html => html
  .replace(/&nbsp;|&#160;/gi," ")
  .replace(/&amp;/gi,"&").replace(/&lt;/gi,"<").replace(/&gt;/gi,">")
  .replace(/\\s+/g," ").trim().slice(0,9000);
-export async function fetchAllowlistedPage(url,allowedHosts){
+export async function fetchPublicPage(url){
  const u=new URL(url);
- if(!publicSource({url})||!allowedHosts.has(u.hostname))throw Error("Full-text host not allowlisted");
- // Reject redirects; redirects must never bypass the host allowlist.
+ if(!publicSource({url})||!u.hostname.includes(".")||u.port)throw Error("Unsafe full-text destination");
+ // Only search-derived HTTPS destinations; no redirects, credentials or custom ports.
  const response=await fetch(url,{redirect:"manual",headers:{"Accept":"text/html","User-Agent":"manaGPT-research/1.0"},signal:AbortSignal.timeout(6000)});
  if(!response.ok||response.status>=300)throw Error("Page unavailable");
  const type=response.headers.get("content-type")||"";
@@ -63,13 +63,12 @@ export async function research(env,body){
   sources.push({id:sources.length+1,title:String(x.title||"").slice(0,220),url:canonical,description:String(x.description||"").slice(0,1100),domain:url.hostname});
   if(sources.length===12)break;
  }
- // Full-page reading is opt-in AND restricted to explicitly configured trusted hosts.
- const allowedHosts=new Set(String(env.RESEARCH_FULLTEXT_HOSTS||"").split(",").map(x=>x.trim().toLowerCase()).filter(Boolean));
+ // Only URLs from the search results are eligible, never user-supplied arbitrary fetch URLs.
  let fulltextCount=0;
- if(body.fulltext===true&&allowedHosts.size){
-  const candidates=sources.filter(x=>allowedHosts.has(x.domain)).slice(0,3);
+ if(body.fulltext===true){
+  const candidates=sources.slice(0,3);
   await Promise.all(candidates.map(async source=>{
-   try{const content=await fetchAllowlistedPage(source.url,allowedHosts);if(content.length>100){source.page_text=content;fulltextCount++}}
+   try{const content=await fetchPublicPage(source.url);if(content.length>100){source.page_text=content;fulltextCount++}}
    catch{/* Retain the search snippet, never silently claim the page was read. */}
   }));
  }
@@ -83,5 +82,5 @@ export async function research(env,body){
  if(typeof answer!=="string"||!answer.trim())throw Error("Empty research response");
  const cited=citationIds(answer);
  const citation_valid=cited.length>0&&cited.every(n=>Number.isInteger(n)&&n>=1&&n<=sources.length);
- return {answer,sources,verified:false,citation_valid,searches:queries.length,fulltext_count:fulltextCount,scope:fulltextCount?"Selected allowlisted HTML pages read; not independently verified":"Search snippets only; not full-page verification"};
+ return {answer,sources,verified:false,citation_valid,searches:queries.length,fulltext_count:fulltextCount,scope:fulltextCount?"Selected search-result HTML pages read; not independently verified":"Search snippets only; not full-page verification"};
 }
