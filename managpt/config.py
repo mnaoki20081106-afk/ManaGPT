@@ -15,7 +15,7 @@ DEFAULT_PROMPT = (
 
 @dataclass(frozen=True)
 class Config:
-    model: str = "cooperleong00/Qwen3-8B-Jailbroken"
+    model: str = "huihui-ai/Huihui-Qwen3-Coder-Next-abliterated"
     provider: str = "openai-compatible"
     api_key: str = ""
     api_base_url: str = ""
