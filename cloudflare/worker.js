@@ -2,13 +2,16 @@ import {research} from "./research.js";
 import {conversations} from "./chat_sessions.js";
 import {repairFailedPR} from "./repair.js";
 import {agentAction,agentStatus,gh} from "./agent.js";
+import {githubSettings,githubEnvironment} from "./github_settings.js";
 // manaGPT Cloudflare Worker: private, serverless, D1-backed chat.
 const headers = {"content-type":"application/json; charset=utf-8","cache-control":"no-store"};
 const json = (data,status=200)=>new Response(JSON.stringify(data),{status,headers});
 export default {
  async scheduled(event,env,ctx){
-  if(!env.DB||!env.GITHUB_TOKEN||!env.GROQ_API_KEY||!env.GITHUB_REPOSITORY)return;
+  if(!env.DB||!env.GROQ_API_KEY)return;
   ctx.waitUntil((async()=>{
+   env=await githubEnvironment(env);
+   if(!env.GITHUB_TOKEN||!env.GITHUB_REPOSITORY)return;
    await env.DB.prepare("CREATE TABLE IF NOT EXISTS agent_repairs (pr INTEGER PRIMARY KEY, head_sha TEXT NOT NULL, checked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
    const root="/repos/"+env.GITHUB_REPOSITORY;
    const prs=await gh(env,root+"/pulls?state=open&per_page=30");
@@ -29,26 +32,31 @@ export default {
  async fetch(request,env){
   const url=new URL(request.url);
   if(url.pathname==="/health") return json({ok:true});
-  if(!env.MANAGPT_ACCESS_TOKEN || !env.GROQ_API_KEY || !env.DB) return json({error:"Configure MANAGPT_ACCESS_TOKEN, GROQ_API_KEY and DB first"},503);
+  if(!env.MANAGPT_ACCESS_TOKEN || !env.DB) return json({error:"Configure MANAGPT_ACCESS_TOKEN and DB first"},503);
   const token=request.headers.get("Authorization")?.replace(/^Bearer /,"");
   if(!token || token!==env.MANAGPT_ACCESS_TOKEN) return json({error:"Unauthorized"},401);
-  if(url.pathname.startsWith("/api/conversations"))return conversations(request,env,url);
+  if(url.pathname.startsWith("/api/github/"))return githubSettings(request,env,url);
+  if(url.pathname.startsWith("/api/conversations")){
+   if(url.pathname.endsWith("/messages")&&!env.GROQ_API_KEY)return json({error:"Configure GROQ_API_KEY first"},503);
+   return conversations(request,env,url);
+  }
   if(url.pathname==="/api/research" && request.method==="POST"){
+   if(!env.GROQ_API_KEY)return json({error:"Configure GROQ_API_KEY first"},503);
    try{return json(await research(env,await request.json()))}
    catch(e){return json({error:String(e.message||e)},400)}
   }
   if(url.pathname==="/api/agent/run" && request.method==="POST"){
-   try{return json(await agentAction(env,await request.json()))}
+   try{return json(await agentAction(await githubEnvironment(env),await request.json()))}
    catch(e){return json({error:String(e.message||e)},400)}
   }
   if(url.pathname==="/api/agent/repair" && request.method==="POST"){
-   try{const body=await request.json();const n=Number(body.pr);if(!Number.isSafeInteger(n)||n<1)return json({error:"Invalid PR"},400);return json(await repairFailedPR(env,n))}
+   try{const body=await request.json();const n=Number(body.pr);if(!Number.isSafeInteger(n)||n<1)return json({error:"Invalid PR"},400);return json(await repairFailedPR(await githubEnvironment(env),n))}
    catch(e){return json({error:String(e.message||e)},400)}
   }
   if(url.pathname==="/api/agent/status" && request.method==="GET"){
    const number=Number(url.searchParams.get("pr"));
    if(!Number.isSafeInteger(number)||number<1)return json({error:"Invalid PR number"},400);
-   try{return json(await agentStatus(env,number))}
+   try{return json(await agentStatus(await githubEnvironment(env),number))}
    catch(e){return json({error:String(e.message||e)},400)}
   }
   await env.DB.prepare("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, role TEXT NOT NULL CHECK(role IN (\'user\',\'assistant\')), content TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
@@ -57,6 +65,7 @@ export default {
    return json({messages:results.reverse()});
   }
   if(url.pathname==="/api/chat" && request.method==="POST"){
+   if(!env.GROQ_API_KEY)return json({error:"Configure GROQ_API_KEY first"},503);
    let body;try{body=await request.json()}catch{return json({error:"Invalid JSON"},400)}
    const prompt=body.message;
    if(typeof prompt!=="string" || !prompt.trim() || prompt.length>12000)return json({error:"Message must be 1–12000 characters"},400);

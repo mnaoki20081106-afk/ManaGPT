@@ -1,3 +1,4 @@
+import "./integrations.test.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {safePath,agentAction,agentStatus} from "../cloudflare/agent.js";
