@@ -7,7 +7,7 @@
 </details><details style="margin:15px 0;background:#202b3c;padding:14px;border-radius:12px"><summary>出典付きWebリサーチ</summary>
 <p>公開Webを検索し、検索結果の抜粋に基づいて回答します。ページ本文の検証やTor接続は行いません。</p>
 <textarea id="research-query" placeholder="調べたいことを入力（例: Torのオニオンサービスとは？）"></textarea>
-<label style="display:block;margin:8px 0"><input id="research-deep" type="checkbox"> 詳しく調査（検索2回・情報源を比較）</label><label style="display:block;margin:8px 0"><input id="research-fulltext" type="checkbox"> 許可済みサイトの本文も読む（管理者設定が必要）</label><button type="button" id="research-submit" onclick="runResearch()">調査する</button>
+<label style="display:block;margin:8px 0"><input id="research-deep" type="checkbox"> 詳しく調査（検索2回・情報源を比較）</label><label style="display:block;margin:8px 0"><input id="research-fulltext" type="checkbox"> 検索で見つかったページの本文も読む</label><button type="button" id="research-submit" onclick="runResearch()">調査する</button>
 <p id="research-answer" style="white-space:pre-wrap;overflow-wrap:anywhere" aria-live="polite"></p>
 <ol id="research-sources"></ol><small id="research-note"></small>
 </details><section id="chat"></section><form id="form"><textarea id="message" placeholder="メッセージを入力" required></textarea><button id="send">送信</button></form></main><script>
@@ -55,7 +55,7 @@ async function runResearch(){
    a.textContent="["+source.id+"] "+source.title;
    li.append(a,document.createTextNode(" — "+source.description));list.append(li);
   }
-  note.textContent=(d.citation_valid?"引用番号は検証済み。":"引用番号の検証ができませんでした。")+" 検索"+d.searches+"回、本文取得"+(d.fulltext_count||0)+"件。本文取得は許可済みサイトに限定され、独立検証ではありません。";
+  note.textContent=(d.citation_valid?"引用番号は検証済み。":"引用番号の検証ができませんでした。")+" 検索"+d.searches+"回、本文取得"+(d.fulltext_count||0)+"件。本文取得は検索結果に限定され、独立検証ではありません。";
  }catch(e){answer.textContent="調査失敗: "+e.message}
  finally{btn.disabled=false}
 }
