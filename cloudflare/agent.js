@@ -21,21 +21,36 @@ export async function agentAction(env,body){
  const base=info.default_branch;
  const head=await gh(env,root+"/git/ref/heads/"+encodeURIComponent(base));
  const tree=await gh(env,root+"/git/trees/"+head.object.sha+"?recursive=1");
- const files=(tree.tree||[]).filter(f=>f.type==="blob"&&f.size<25000&&safePath(f.path)).slice(0,50);
- const selected=files.filter(f=>/\.(py|js|ts|json|md|html|css)$/.test(f.path)).slice(0,14);
+ const files=(tree.tree||[]).filter(f=>f.type==="blob"&&f.size<25000&&safePath(f.path)&&/\.(py|js|ts|tsx|jsx|json|md|html|css|yml|yaml)$/.test(f.path));
+ if(tree.truncated)throw Error("Repository tree was truncated; refusing to edit with incomplete context");
+ const terms=(body.task.toLowerCase().match(/[a-z][a-z0-9_.-]{2,}/g)||[]).slice(0,25);
+ const ranked=files.map(f=>{
+   const path=f.path.toLowerCase(),base=path.split("/").pop();
+   let score=0;
+   for(const t of terms){if(path.includes(t))score+=t.includes(".")?15:6;if(base.includes(t))score+=8}
+   if(/(^|\/)(test|tests|src|lib|app|cloudflare|managpt)(\/|$)/.test(path))score+=2;
+   if(/(^|\/)(readme|pyproject|package\.json|requirements)/.test(path))score+=4;
+   return {...f,score};
+ }).sort((a,b)=>b.score-a.score||a.path.localeCompare(b.path));
+ const selected=ranked.slice(0,18);
  const sources=await Promise.all(selected.map(async f=>{
    const d=await gh(env,root+"/contents/"+f.path+"?ref="+encodeURIComponent(base));
-   try{return {path:f.path,content:decodeURIComponent(escape(atob(d.content.replace(/\s/g,"")))).slice(0,12000)}}catch{return {path:f.path,content:"[unreadable]"}}
+   try{
+     const bytes=Uint8Array.from(atob(d.content.replace(/\s/g,"")),c=>c.charCodeAt(0));
+     return {path:f.path,content:new TextDecoder().decode(bytes).slice(0,14000)};
+   }catch{return {path:f.path,content:"[unreadable]"}}
  }));
- const instructions="You are a coding agent. Return ONLY a JSON object with an edits array of {path,content} (complete replacement file text). Modify at most 5 files. Use only paths from supplied files or add a new safe file. Do not edit workflows, secrets, or authentication. No markdown fences. No explanation.";
- const prompt=JSON.stringify({task:body.task,files:sources});
+ const manifest=ranked.slice(0,350).map(f=>f.path);
+ const instructions="You are a coding agent. Inspect provided files and repository manifest. If essential context is missing, return JSON {edits:[],reason:\"insufficient context\"} rather than guessing. Never claim tests passed without test output. Keep changes minimal and include relevant regression tests when possible.  Return ONLY a JSON object with an edits array of {path,content} (complete replacement file text). Modify at most 5 files. Use only paths from supplied files or add a new safe file. Do not edit workflows, secrets, or authentication. No markdown fences. No explanation.";
+ const prompt=JSON.stringify({task:body.task,repository_files:manifest,files:sources,context_limit:"Only selected files have full contents. Do not invent facts about other files."});
  const response=await fetch("https://api.groq.com/openai/v1/chat/completions",{
    method:"POST",headers:{"Authorization":"Bearer "+env.GROQ_API_KEY,"Content-Type":"application/json"},
    body:JSON.stringify({model:env.MANAGPT_MODEL||"qwen/qwen3.8-27b",messages:[{role:"system",content:instructions},{role:"user",content:prompt}],temperature:0.2,stream:false})});
  if(!response.ok)throw Error("AI generation failed ("+response.status+")");
  const ai=await response.json();const raw=ai.choices?.[0]?.message?.content||"";
  let proposal;try{proposal=JSON.parse(raw)}catch{throw Error("AI returned invalid edit JSON")}
- if(!Array.isArray(proposal.edits)||proposal.edits.length<1||proposal.edits.length>5)throw Error("Invalid number of edits");
+ if(Array.isArray(proposal.edits)&&proposal.edits.length===0)throw Error(proposal.reason||"Insufficient context to make a reliable change");
+ if(!Array.isArray(proposal.edits)||proposal.edits.length>5)throw Error("Invalid number of edits");
  const seen=new Set();
  for(const e of proposal.edits){
    if(!safePath(e.path)||typeof e.content!=="string"||e.content.length>80000||seen.has(e.path))throw Error("Unsafe edit proposal");
