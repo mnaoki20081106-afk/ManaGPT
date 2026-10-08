@@ -31,7 +31,7 @@ jobs:
           node --check /tmp/managpt-github-settings.mjs
           node --check /tmp/managpt-extras.mjs
       - name: Agent regression tests
-        run: node --experimental-default-type=module --test tests/agent.test.mjs
+        run: node --experimental-default-type=module --test tests/agent.test.mjs tests/integrations.test.mjs tests/ui-wiring.test.mjs
       - name: Cloudflare deployment preflight tests
         run: node --test .github/scripts/cloudflare-preflight.test.mjs
       - name: Tor URL validation tests

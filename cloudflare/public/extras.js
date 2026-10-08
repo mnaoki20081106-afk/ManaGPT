@@ -72,7 +72,7 @@
  async function refreshRepos(){const d=await api("github/repositories");repositories=d.repositories||[];filterRepos()}
  window.loadGithubSettings=async()=>{
   try{
-   const d=await api("github/status");selectedRepo=d.repository||"";
+   const d=await api("github/status");const previousRepo=selectedRepo;selectedRepo=d.repository||"";if(previousRepo!==selectedRepo)window.dispatchEvent(new Event("managpt:repository-change"));
    $("github-state").textContent=d.connected?("接続済み"+(d.login?"："+d.login:"（環境変数）")+(selectedRepo?"\n選択中："+selectedRepo:"\nリポジトリを選択してください")):"未接続";
    $("agent-selected-repo").textContent=selectedRepo?"対象： "+selectedRepo:"設定画面でGitHubの接続先を選択してください";
    if(d.connected)await refreshRepos();else{repositories=[];filterRepos()}
