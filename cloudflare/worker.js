@@ -7,7 +7,7 @@ const headers = {"content-type":"application/json; charset=utf-8","cache-control
 const json = (data,status=200)=>new Response(JSON.stringify(data),{status,headers});
 export default {
  async scheduled(event,env,ctx){
-  if(!env.DB||!env.GITHUB_TOKEN||!env.GROQ_API_KEY||!env.GITHUB_REPOSITORY)return;
+  if(!env.DB||!env.GITHUB_TOKEN||(!env.GROQ_API_KEY&&!env.AGENT_API_KEY)||!env.GITHUB_REPOSITORY)return;
   ctx.waitUntil((async()=>{
    await env.DB.prepare("CREATE TABLE IF NOT EXISTS agent_repairs (pr INTEGER PRIMARY KEY, head_sha TEXT NOT NULL, checked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
    const root="/repos/"+env.GITHUB_REPOSITORY;
@@ -15,14 +15,14 @@ export default {
    for(const pr of prs.filter(p=>p.head.ref.startsWith("managpt/agent-")&&p.head.repo?.full_name===env.GITHUB_REPOSITORY).slice(0,5)){
     const prev=await env.DB.prepare("SELECT head_sha FROM agent_repairs WHERE pr=?").bind(pr.number).first();
     if(prev?.head_sha===pr.head.sha)continue;
-    const checks=await gh(env,root+"/commits/"+pr.head.sha+"/check-runs");
-    const list=checks.check_runs||[];
-    if(!list.length||list.some(c=>c.status!=="completed"))continue;
-    // Record before calling the model to avoid repeated charges on transient failures.
-    await env.DB.prepare("INSERT INTO agent_repairs(pr,head_sha) VALUES (?,?) ON CONFLICT(pr) DO UPDATE SET head_sha=excluded.head_sha,checked_at=CURRENT_TIMESTAMP").bind(pr.number,pr.head.sha).run();
-    if(list.some(c=>c.conclusion==="failure")){
-     try{await repairFailedPR(env,pr.number)}catch(e){console.error("Agent repair failed for PR",pr.number,String(e.message||e))}
-    }
+    const status=await agentStatus(env,pr.number);
+    if(status.head_sha!==pr.head.sha||status.validation!=="not_passed")continue;
+    // Store only after a completed repair. Transient failures remain retryable.
+    try{
+     const result=await repairFailedPR(env,pr.number);
+     if(result.state==="repaired"||result.state==="limit")
+      await env.DB.prepare("INSERT INTO agent_repairs(pr,head_sha) VALUES (?,?) ON CONFLICT(pr) DO UPDATE SET head_sha=excluded.head_sha,checked_at=CURRENT_TIMESTAMP").bind(pr.number,pr.head.sha).run();
+    }catch(e){console.error("Agent repair failed for PR",pr.number,String(e.message||e))}
    }
   })());
  },

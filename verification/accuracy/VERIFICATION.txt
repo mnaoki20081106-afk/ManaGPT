@@ -1,0 +1,300 @@
+Branch: codex/agent-context-review
+Fields: review.stage=implementation/tests; AGENT_REQUIRED_CHECKS; validation; regression_gate; retryable repair
+Original local commit: bc10e82c9dd8382665f90edab4cea67060ac4766
+Original remote commit: 87d46556e2f4c51c956a900b231401b01cc3bbb3
+MODIFIED_FILE: /workspace/scratch/50c10d470d13/ManaGPT/cloudflare/coding.js
+DIFF_FILE: /workspace/scratch/50c10d470d13/ManaGPT/verification/accuracy/accuracy.patch
+VERIFICATION: /workspace/scratch/50c10d470d13/ManaGPT/verification/accuracy/VERIFICATION.txt
+ROLLBACK: /workspace/scratch/50c10d470d13/ManaGPT/verification/accuracy/ROLLBACK.sh
+BASELINE SHA256 cloudflare/coding.js: 0243f5d3ca831275763bf32720fa5e2349115b1503d853d24078b5ba440caebf
+BASELINE SHA256 cloudflare/agent.js: 0510f2749c1734cfdb1a551df83d243b85efbede5cc745b885b47e0e4cdbd0b3
+BASELINE SHA256 cloudflare/repair.js: 550a655876c5f061b7717049d8f35304ba574dcb601208295c9a37f377f7c619
+
+BASELINE
+command: node --test tests/agent.test.mjs
+cwd: /workspace/scratch/50c10d470d13/ManaGPT-accuracy-baseline
+input: repository files and deterministic GitHub/model fixtures; no live model
+literal output:
+✔ unsafe paths are rejected (1.257007ms)
+✔ agent requires valid task and credentials (0.706703ms)
+✔ repair requires integration (0.41274ms)
+✔ health and auth do not expose private endpoints (3.544636ms)
+✔ missing CI checks are not a pass (1.718609ms)
+✔ research requires credentials and rejects short questions (1.4082ms)
+✔ research preserves citations and filters unsafe search links (4.496853ms)
+✔ citation integrity and unsafe URL filtering (0.744569ms)
+✔ deep research uses two searches and deduplicates sources (1.158011ms)
+✔ HTML extraction removes active content and navigation (0.804648ms)
+✔ full text rejects unsafe destinations before network access (0.409725ms)
+✔ research reads search-derived public HTML pages (1.207724ms)
+✔ conversation API rejects invalid ids and missing sessions (1.080206ms)
+✔ agent reads additional files, resolves review, adds tests and publishes atomically (13.296631ms)
+✔ rejected review exhausts budget without publishing (6.394686ms)
+✔ complete file content beyond the former 14000 character cutoff reaches model (3.758622ms)
+✔ nested repository instructions are loaded before proposal review (1.999964ms)
+✔ unread files, duplicate edits, file-directory collisions and no-ops are rejected (0.625294ms)
+✔ model configuration supports a separate coding provider and review model (0.144713ms)
+✔ encoded traversal, environment variants, empty components and private keys are rejected (0.125715ms)
+✔ repair consumes multiline failure evidence and refuses a changed PR head (1.765779ms)
+✔ incomplete check list never becomes a successful status (0.321836ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 140.252567
+exit status: 0
+
+BASELINE
+command: python -m pytest -q
+cwd: /workspace/scratch/50c10d470d13/ManaGPT-accuracy-baseline
+input: repository files and deterministic GitHub/model fixtures; no live model
+literal output:
+.......                                                                  [100%]
+=============================== warnings summary ===============================
+../../../../root/.local/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /root/.local/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+7 passed, 1 warning in 0.82s
+exit status: 0
+
+BASELINE
+command: python3 -m unittest discover -s tor -p test_*.py -v
+cwd: /workspace/scratch/50c10d470d13/ManaGPT-accuracy-baseline
+input: repository files and deterministic GitHub/model fixtures; no live model
+literal output:
+test_invalid_urls (test_sidecar.ValidationTests.test_invalid_urls) ... ok
+test_valid_v3 (test_sidecar.ValidationTests.test_valid_v3) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.000s
+
+OK
+exit status: 0
+
+BASELINE accuracy probe
+command: node /workspace/scratch/50c10d470d13/ManaGPT/verification/accuracy/probe.mjs /workspace/scratch/50c10d470d13/ManaGPT-accuracy-baseline
+cwd: /workspace/scratch/50c10d470d13/ManaGPT
+input: repository files and deterministic GitHub/model fixtures; no live model
+literal output:
+legacy_failure: actual=passed expected=not_passed FAIL
+missing_required: actual=passed expected=unknown FAIL
+exit status: 1
+
+MODIFIED
+command: node --test tests/agent.test.mjs
+cwd: /workspace/scratch/50c10d470d13/ManaGPT
+input: repository files and deterministic GitHub/model fixtures; no live model
+literal output:
+✔ unsafe paths are rejected (1.655836ms)
+✔ agent requires valid task and credentials (0.991014ms)
+✔ repair requires integration (0.527149ms)
+✔ health and auth do not expose private endpoints (4.793912ms)
+✔ missing CI checks are not a pass (2.028477ms)
+✔ research requires credentials and rejects short questions (0.346062ms)
+✔ research preserves citations and filters unsafe search links (0.96788ms)
+✔ citation integrity and unsafe URL filtering (0.746653ms)
+✔ deep research uses two searches and deduplicates sources (1.460787ms)
+✔ HTML extraction removes active content and navigation (0.65618ms)
+✔ full text rejects unsafe destinations before network access (0.402765ms)
+✔ research reads search-derived public HTML pages (1.248263ms)
+✔ conversation API rejects invalid ids and missing sessions (1.291077ms)
+✔ agent reads additional files, resolves review, adds tests and publishes atomically (15.892916ms)
+✔ rejected review exhausts budget without publishing (4.671741ms)
+✔ complete file content beyond the former 14000 character cutoff reaches model (4.635818ms)
+✔ nested repository instructions are loaded before proposal review (2.776382ms)
+✔ unread files, duplicate edits, file-directory collisions and no-ops are rejected (0.284961ms)
+✔ model configuration supports a separate coding provider and review model (0.138394ms)
+✔ encoded traversal, environment variants, empty components and private keys are rejected (0.09492ms)
+✔ repair consumes multiline failure evidence and refuses a changed PR head (2.600782ms)
+✔ incomplete check list never becomes a successful status (0.35185ms)
+✔ required CI and legacy statuses must all succeed on the exact commit (2.135324ms)
+✔ skipped, neutral, cancelled and timed-out checks are not passes (2.278286ms)
+✔ CI reads failures after page one rather than trusting first 100 successes (1.041148ms)
+✔ malformed, changing, duplicate and wrong-SHA CI evidence stays unknown (1.216447ms)
+✔ a newly pushed PR commit invalidates an otherwise successful CI observation (0.440471ms)
+✔ test audit can veto implementation approval and both reviews rerun on the fixed patch (2.177646ms)
+✔ implementation without regression tests returns to the author before any reviewer or write (2.272347ms)
+✔ contradictory review approval does not publish a patch (1.025435ms)
+✔ invalid JSON replacements, empty files and embedded NULs fail deterministic validation (0.340473ms)
+✔ scheduled repair retries transient errors and records only completed outcomes (2.075817ms)
+✔ repository CI definitions are read before either reviewer evaluates test coverage (2.776712ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 166.154414
+exit status: 0
+
+MODIFIED
+command: python -m pytest -q
+cwd: /workspace/scratch/50c10d470d13/ManaGPT
+input: repository files and deterministic GitHub/model fixtures; no live model
+literal output:
+.......                                                                  [100%]
+=============================== warnings summary ===============================
+../../../../root/.local/lib/python3.12/site-packages/fastapi/testclient.py:1
+  /root/.local/lib/python3.12/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+7 passed, 1 warning in 0.80s
+exit status: 0
+
+MODIFIED
+command: python3 -m unittest discover -s tor -p test_*.py -v
+cwd: /workspace/scratch/50c10d470d13/ManaGPT
+input: repository files and deterministic GitHub/model fixtures; no live model
+literal output:
+test_invalid_urls (test_sidecar.ValidationTests.test_invalid_urls) ... ok
+test_valid_v3 (test_sidecar.ValidationTests.test_valid_v3) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.000s
+
+OK
+exit status: 0
+
+MODIFIED accuracy probe
+command: node /workspace/scratch/50c10d470d13/ManaGPT/verification/accuracy/probe.mjs /workspace/scratch/50c10d470d13/ManaGPT
+cwd: /workspace/scratch/50c10d470d13/ManaGPT
+input: repository files and deterministic GitHub/model fixtures; no live model
+literal output:
+legacy_failure: actual=not_passed expected=not_passed PASS
+missing_required: actual=unknown expected=unknown PASS
+exit status: 0
+
+MODIFIED syntax
+command: node --check /workspace/scratch/50c10d470d13/ManaGPT/cloudflare/chat_sessions.js
+cwd: /workspace/scratch/50c10d470d13/ManaGPT
+input: repository files and deterministic GitHub/model fixtures; no live model
+literal output:
+
+exit status: 0
+
+MODIFIED syntax
+command: node --check /workspace/scratch/50c10d470d13/ManaGPT/cloudflare/ci.js
+cwd: /workspace/scratch/50c10d470d13/ManaGPT
+input: repository files and deterministic GitHub/model fixtures; no live model
+literal output:
+
+exit status: 0
+
+MODIFIED syntax
+command: node --check /workspace/scratch/50c10d470d13/ManaGPT/cloudflare/worker.js
+cwd: /workspace/scratch/50c10d470d13/ManaGPT
+input: repository files and deterministic GitHub/model fixtures; no live model
+literal output:
+
+exit status: 0
+
+MODIFIED syntax
+command: node --check /workspace/scratch/50c10d470d13/ManaGPT/cloudflare/coding.js
+cwd: /workspace/scratch/50c10d470d13/ManaGPT
+input: repository files and deterministic GitHub/model fixtures; no live model
+literal output:
+
+exit status: 0
+
+MODIFIED syntax
+command: node --check /workspace/scratch/50c10d470d13/ManaGPT/cloudflare/research.js
+cwd: /workspace/scratch/50c10d470d13/ManaGPT
+input: repository files and deterministic GitHub/model fixtures; no live model
+literal output:
+
+exit status: 0
+
+MODIFIED syntax
+command: node --check /workspace/scratch/50c10d470d13/ManaGPT/cloudflare/repair.js
+cwd: /workspace/scratch/50c10d470d13/ManaGPT
+input: repository files and deterministic GitHub/model fixtures; no live model
+literal output:
+
+exit status: 0
+
+MODIFIED syntax
+command: node --check /workspace/scratch/50c10d470d13/ManaGPT/cloudflare/agent.js
+cwd: /workspace/scratch/50c10d470d13/ManaGPT
+input: repository files and deterministic GitHub/model fixtures; no live model
+literal output:
+
+exit status: 0
+
+MODIFIED UI syntax
+command: node --check /tmp/managpt-accuracy-ui.js
+cwd: /workspace/scratch/50c10d470d13/ManaGPT
+input: repository files and deterministic GitHub/model fixtures; no live model
+literal output:
+
+exit status: 0
+
+ROLLBACK preparation
+command: git apply /workspace/scratch/50c10d470d13/ManaGPT/verification/accuracy/accuracy.patch
+cwd: /workspace/scratch/50c10d470d13/ManaGPT-accuracy-rollback
+input: repository files and deterministic GitHub/model fixtures; no live model
+literal output:
+
+exit status: 0
+
+ROLLBACK
+command: bash /workspace/scratch/50c10d470d13/ManaGPT/verification/accuracy/ROLLBACK.sh /workspace/scratch/50c10d470d13/ManaGPT-accuracy-rollback
+cwd: /workspace/scratch/50c10d470d13/ManaGPT
+input: repository files and deterministic GitHub/model fixtures; no live model
+literal output:
+ROLLBACK: original source restored
+exit status: 0
+RESTORED: all original tracked files byte-identical, ci.js removed. Original behavior (including original false-success defects) restored on the separate copy. Modified source retained.
+
+ROLLBACK
+command: node --test tests/agent.test.mjs
+cwd: /workspace/scratch/50c10d470d13/ManaGPT-accuracy-rollback
+input: repository files and deterministic GitHub/model fixtures; no live model
+literal output:
+✔ unsafe paths are rejected (1.224068ms)
+✔ agent requires valid task and credentials (0.858728ms)
+✔ repair requires integration (0.34498ms)
+✔ health and auth do not expose private endpoints (3.154249ms)
+✔ missing CI checks are not a pass (1.5295ms)
+✔ research requires credentials and rejects short questions (1.15084ms)
+✔ research preserves citations and filters unsafe search links (1.208165ms)
+✔ citation integrity and unsafe URL filtering (0.696108ms)
+✔ deep research uses two searches and deduplicates sources (1.168506ms)
+✔ HTML extraction removes active content and navigation (0.724079ms)
+✔ full text rejects unsafe destinations before network access (0.38552ms)
+✔ research reads search-derived public HTML pages (1.052845ms)
+✔ conversation API rejects invalid ids and missing sessions (1.03564ms)
+✔ agent reads additional files, resolves review, adds tests and publishes atomically (12.332978ms)
+✔ rejected review exhausts budget without publishing (4.223189ms)
+✔ complete file content beyond the former 14000 character cutoff reaches model (3.746229ms)
+✔ nested repository instructions are loaded before proposal review (2.31515ms)
+✔ unread files, duplicate edits, file-directory collisions and no-ops are rejected (0.36533ms)
+✔ model configuration supports a separate coding provider and review model (0.134429ms)
+✔ encoded traversal, environment variants, empty components and private keys are rejected (0.083714ms)
+✔ repair consumes multiline failure evidence and refuses a changed PR head (2.195773ms)
+✔ incomplete check list never becomes a successful status (0.448482ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 132.759584
+exit status: 0
+
+ROLLBACK accuracy probe
+command: node /workspace/scratch/50c10d470d13/ManaGPT/verification/accuracy/probe.mjs /workspace/scratch/50c10d470d13/ManaGPT-accuracy-rollback
+cwd: /workspace/scratch/50c10d470d13/ManaGPT
+input: repository files and deterministic GitHub/model fixtures; no live model
+literal output:
+legacy_failure: actual=passed expected=not_passed FAIL
+missing_required: actual=passed expected=unknown FAIL
+exit status: 1
+Model coding accuracy benchmark and deployed end-to-end model execution: NOT TESTED. Tests exercise orchestration and deterministic correctness gates.
