@@ -9,7 +9,15 @@ export async function repairFailedPR(env,number){
  const checks=runs.check_runs||[];
  if(checks.some(c=>c.status!=="completed"))return {state:"pending",message:"Tests are still running",checks:checks.map(c=>({name:c.name,status:c.status}))};
  const failures=checks.filter(c=>c.conclusion==="failure");
- if(!failures.length)return {state:"passed",message:"No failing checks"};
+ if(!checks.length)return {state:"unknown",message:"No CI checks found. Cannot claim tests passed"};
+ if(!failures.length){
+  const bad=checks.filter(c=>c.conclusion!=="success");
+  if(bad.length)return {state:"unknown",message:"Checks did not all succeed",checks:bad.map(c=>({name:c.name,conclusion:c.conclusion}))};
+  return {state:"passed",message:"All reported checks passed"};
+ }
+ const comments=await gh(env,root+"/issues/"+number+"/comments?per_page=100");
+ const prior=(comments||[]).filter(c=>c.body?.startsWith("manaGPT repair attempt:")).length;
+ if(prior>=3)return {state:"limit",message:"Maximum 3 repair attempts reached; manual review required"};
  const changed=await gh(env,root+"/pulls/"+number+"/files?per_page=30");
  const allowed=changed.filter(f=>safePath(f.filename)&&f.status!=="removed").slice(0,5);
  if(!allowed.length)throw Error("No repairable files");
@@ -45,5 +53,6 @@ export async function repairFailedPR(env,number){
  const tree=await gh(env,root+"/git/trees",{method:"POST",body:JSON.stringify({base_tree:baseCommit.tree.sha,tree:blobs})});
  const commit=await gh(env,root+"/git/commits",{method:"POST",body:JSON.stringify({message:"manaGPT: repair failing PR checks",tree:tree.sha,parents:[pr.head.sha]})});
  await gh(env,root+"/git/refs/heads/"+pr.head.ref,{method:"PATCH",body:JSON.stringify({sha:commit.sha,force:false})});
+ await gh(env,root+"/issues/"+number+"/comments",{method:"POST",body:JSON.stringify({body:"manaGPT repair attempt: "+(prior+1)+"/3. Commit: "+commit.sha})});
  return {state:"repaired",pr_url:pr.html_url,commit:commit.sha,files:blobs.map(b=>b.path),message:"New commit pushed; PR checks will rerun"};
 }
