@@ -41,7 +41,7 @@ export async function repairFailedPR(env,number){
    const blob=await gh(env,root+"/git/blobs",{method:"POST",body:JSON.stringify({content:e.content,encoding:"utf-8"})});
    return {path:e.original.path,mode:"100644",type:"blob",sha:blob.sha};
  }));
- const tree=await gh(env,root+"/git/trees",{method:"POST",body:JSON.stringify({base_tree:pr.head.sha,tree:blobs})});
+ const baseCommit=await gh(env,root+"/git/commits/"+pr.head.sha);\n const tree=await gh(env,root+"/git/trees",{method:"POST",body:JSON.stringify({base_tree:baseCommit.tree.sha,tree:blobs})});
  const commit=await gh(env,root+"/git/commits",{method:"POST",body:JSON.stringify({message:"manaGPT: repair failing PR checks",tree:tree.sha,parents:[pr.head.sha]})});
  await gh(env,root+"/git/refs/heads/"+pr.head.ref,{method:"PATCH",body:JSON.stringify({sha:commit.sha,force:false})});
  return {state:"repaired",pr_url:pr.html_url,commit:commit.sha,files:blobs.map(b=>b.path),message:"New commit pushed; PR checks will rerun"};
