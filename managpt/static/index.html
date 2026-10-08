@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>manaGPT</title>
+<style>
+:root{color-scheme:dark;--bg:#0d1118;--panel:#161d28;--ink:#e9edf5;--muted:#94a4b9;--accent:#72e7ca;--border:#283548}
+*{box-sizing:border-box}body{margin:0;font:15px/1.6 system-ui,-apple-system,sans-serif;color:var(--ink);background:var(--bg)}
+button,input,textarea{font:inherit}button{cursor:pointer}header{height:65px;display:flex;justify-content:space-between;align-items:center;padding:0 24px;border-bottom:1px solid var(--border);background:#121824}
+.brand{font-size:22px;font-weight:800;letter-spacing:-.6px}.brand span{color:var(--accent)}.small{color:var(--muted);font-size:12px}
+.actions{display:flex;gap:9px;align-items:center}button{border:1px solid var(--border);color:var(--ink);background:#1d2735;border-radius:10px;padding:8px 12px}
+button:hover{border-color:var(--accent)}button:disabled{opacity:.5;cursor:not-allowed}main{height:calc(100dvh - 65px);display:flex;flex-direction:column;max-width:950px;margin:auto}
+#messages{flex:1;overflow:auto;padding:25px 24px 12px;display:flex;flex-direction:column;gap:18px}
+.empty{text-align:center;margin:auto;color:var(--muted)}.empty b{font-size:30px;display:block;color:var(--ink);margin-bottom:8px}
+.bubble{white-space:pre-wrap;overflow-wrap:anywhere;border:1px solid var(--border);border-radius:16px;padding:13px 16px;max-width:min(85%,770px);align-self:flex-start;background:var(--panel)}
+.bubble.user{align-self:flex-end;background:#20352f;border-color:#2f5b50}.who{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:5px}
+details{color:var(--muted);margin:6px 0;border-left:2px solid #4d6070;padding-left:10px}summary{cursor:pointer}.thinking{white-space:pre-wrap;font-size:13px}
+footer{padding:12px 24px 18px;background:var(--bg)}.composer{border:1px solid var(--border);border-radius:18px;display:flex;align-items:flex-end;padding:10px;gap:10px;background:var(--panel)}
+textarea{flex:1;resize:none;min-height:46px;max-height:160px;background:transparent;color:var(--ink);border:0;outline:none;padding:9px;font-size:15px}#send{background:var(--accent);color:#10231e;border:0;font-weight:800;padding:12px 18px}
+.note{text-align:center;color:var(--muted);font-size:11px;margin-top:7px}
+dialog{border:1px solid var(--border);border-radius:18px;background:var(--panel);color:var(--ink);max-width:520px;width:90%;padding:25px}
+dialog::backdrop{background:#0009}label{display:block;font-weight:600;margin:12px 0 5px}input[type=text]{width:100%;background:var(--bg);color:var(--ink);border:1px solid var(--border);padding:10px;border-radius:8px}.check{display:flex;gap:8px;align-items:center}input[type=checkbox]{accent-color:var(--accent)}
+@media(max-width:600px){header{padding:0 12px}.small{display:none}.actions{gap:4px}button{padding:8px}#messages{padding:15px}.bubble{max-width:95%}footer{padding:9px}}
+</style>
+</head>
+<body>
+<header><div><div class="brand">mana<span>GPT</span></div><div class="small">Qwen · Your AI, your rules</div></div>
+<div class="actions"><button id="new" title="新規チャット">＋ 新規</button><button id="export" title="引き継ぎJSONを保存">書き出し</button><button id="settings">設定</button></div></header>
+<main><section id="messages" aria-live="polite"><div class="empty" id="empty"><b>manaGPT</b>あなたのQwen AIと会話を始めよう。</div></section>
+<footer><div class="composer"><textarea id="prompt" rows="1" placeholder="メッセージを入力… (Shift+Enterで改行)"></textarea><button id="send">送信</button></div><div class="note" id="status">ローカルのOllamaに接続します。会話は端末内のSQLiteに保存されます。</div></footer></main>
+<dialog id="prefs"><h2 style="margin-top:0">AIの設定</h2><label for="model">Ollamaモデル名</label><input type="text" id="model" placeholder="qwen3.8:27b" />
+<label for="role">役割</label><input type="text" id="role" placeholder="expert AI assistant" />
+<label for="context">プロジェクトの説明</label><textarea id="context" rows="4" style="width:100%;background:#0d1118;border:1px solid #283548;border-radius:8px;color:white;padding:10px"></textarea>
+<label class="check"><input type="checkbox" id="thinking"> 思考モードを使う</label>
+<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px"><button id="cancel">閉じる</button><button id="save">設定を保存</button></div></dialog>
+<script>
+const $ = s => document.querySelector(s);
+let sid = localStorage.getItem('managpt_session'), busy = false;
+const status = msg => $('#status').textContent = msg;
+async function api(path,opts={}) {
+  const response = await fetch(path,{headers:{'Content-Type':'application/json'},...opts});
+  if(!response.ok) {let err=await response.text();throw Error(`HTTP ${response.status}: ${err.slice(0,300)}`)}
+  return response.json();
+}
+function bubble(role, content=''){
+  $('#empty')?.remove(); const el=document.createElement('article'); el.className='bubble '+(role==='user'?'user':'assistant');
+  const who=document.createElement('div');who.className='who';who.textContent=role==='user'?'You':'manaGPT';
+  const body=document.createElement('div');body.className='body';body.textContent=content;
+  el.append(who,body);$('#messages').append(el);scrollEnd();return {el,body};
+}
+function scrollEnd(){ $('#messages').scrollTop=$('#messages').scrollHeight }
+function render(messages){ $('#messages').replaceChildren();if(!messages.length){const e=document.createElement('div');e.className='empty';e.id='empty';e.textContent='manaGPTと会話を始めよう。';$('#messages').append(e)} else messages.forEach(m=>bubble(m.role,m.content)); }
+async function init(){
+  try{
+    if(sid){try {const obj=await api('/api/sessions/'+encodeURIComponent(sid));render(obj.messages);return} catch{sid=null}}
+    const sess=await api('/api/sessions',{method:'POST'});sid=sess.id;localStorage.setItem('managpt_session',sid);render([]);
+  }catch(e){status('起動エラー: '+e.message)}
+}
+async function send(){
+  const text=$('#prompt').value.trim();if(busy||!text||!sid)return;
+  busy=true;$('#send').disabled=true;$('#prompt').value='';bubble('user',text);const {el,body}=bubble('assistant');let answer='', reasoning='', failed=false;
+  status('生成中…');
+  try{
+    const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid,message:text})});
+    if(!res.ok)throw Error(`HTTP ${res.status}`);
+    const reader=res.body.getReader(), decoder=new TextDecoder();let buffer='';
+    while(true){const {value,done}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});let idx;
+      while((idx=buffer.indexOf('\n'))!==-1){let line=buffer.slice(0,idx);buffer=buffer.slice(idx+1);if(!line.trim())continue;
+        const event=JSON.parse(line);
+        if(event.type==='content'){answer+=event.text;body.textContent=answer}
+        if(event.type==='thinking'){
+          reasoning+=event.text;let d=el.querySelector('details');if(!d){d=document.createElement('details');d.innerHTML='<summary>思考過程</summary>';const pre=document.createElement('div');pre.className='thinking';d.append(pre);el.insertBefore(d,body)}d.querySelector('.thinking').textContent=reasoning;
+        }
+        if(event.type==='error'){failed=true;body.textContent+=(answer?'\n':'')+'⚠ '+event.text}
+        if(event.type==='done') status('完了');
+        scrollEnd();
+      }
+    }
+    if(!answer&&!failed)body.textContent='応答がありませんでした。';
+  }catch(e){failed=true;body.textContent+='\n⚠ '+e.message}
+  finally{busy=false;$('#send').disabled=false;status(failed?'エラーが発生しました。':'準備完了');$('#prompt').focus()}
+}
+$('#send').onclick=send;$('#prompt').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();send()}});
+$('#new').onclick=async()=>{if(busy)return;try{const x=await api('/api/sessions',{method:'POST'});sid=x.id;localStorage.setItem('managpt_session',sid);render([]);status('新規チャットを作成しました')}catch(e){status(e.message)}};
+$('#export').onclick=async()=>{try{const x=await api('/api/sessions/'+encodeURIComponent(sid)+'/export');const blob=new Blob([JSON.stringify(x,null,2)],{type:'application/json'});const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download='managpt_handoff.json';a.click();URL.revokeObjectURL(u)}catch(e){status(e.message)}};
+$('#settings').onclick=async()=>{try{const x=(await api('/api/sessions/'+encodeURIComponent(sid))).session;$('#model').value=x.model;$('#role').value=x.role;$('#context').value=x.project_context;$('#thinking').checked=x.thinking;$('#prefs').showModal()}catch(e){status(e.message)}};
+$('#cancel').onclick=()=>$('#prefs').close();
+$('#save').onclick=async()=>{try{await api('/api/sessions/'+encodeURIComponent(sid),{method:'PATCH',body:JSON.stringify({model:$('#model').value.trim(),role:$('#role').value.trim(),project_context:$('#context').value,thinking:$('#thinking').checked})});$('#prefs').close();status('設定を保存しました')}catch(e){status(e.message)}};
+init();
+</script>
+</body>
+</html>
