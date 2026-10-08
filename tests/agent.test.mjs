@@ -42,7 +42,7 @@ test("missing CI checks are not a pass",async()=>{
 
 test("research requires credentials and rejects short questions",async()=>{
  await assert.rejects(research({}, {query:"hi"}),/3/);
- await assert.rejects(research({}, {query:"privacy research"}),/GROQ_API_KEY/);
+ await assert.rejects(research({}, {query:"privacy research"}),/inference endpoint/);
 });
 test("research preserves citations and filters unsafe search links",async()=>{
  const original=globalThis.fetch;
@@ -57,7 +57,7 @@ test("research preserves citations and filters unsafe search links",async()=>{
   return new Response(JSON.stringify({choices:[{message:{content:"Answer [1]"}}]}),{status:200});
  };
  try{
-  const result=await research({GROQ_API_KEY:"test",BRAVE_SEARCH_API_KEY:"test"}, {query:"privacy research"});
+  const result=await research({MANAGPT_INFERENCE_BASE_URL:"https://gpu.example.com/v1",MANAGPT_INFERENCE_API_KEY:"test",BRAVE_SEARCH_API_KEY:"test"}, {query:"privacy research"});
   assert.equal(requests,2);
   assert.equal(result.sources.length,1);
   assert.equal(result.sources[0].url,"https://example.org/guide");
@@ -83,7 +83,7 @@ test("deep research uses two searches and deduplicates sources",async()=>{
   return new Response(JSON.stringify({choices:[{message:{content:"Evidence [1]"}}]}));
  };
  try{
-  const result=await research({GROQ_API_KEY:"test",BRAVE_SEARCH_API_KEY:"test"},{query:"privacy research",deep:true});
+  const result=await research({MANAGPT_INFERENCE_BASE_URL:"https://gpu.example.com/v1",MANAGPT_INFERENCE_API_KEY:"test",BRAVE_SEARCH_API_KEY:"test"},{query:"privacy research",deep:true});
   assert.equal(searches,2);
   assert.equal(result.sources.length,1);
   assert.equal(result.citation_valid,true);
@@ -112,7 +112,7 @@ test("research reads search-derived public HTML pages",async()=>{
   return new Response(JSON.stringify({choices:[{message:{content:"Evidence [1]"}}]}));
  };
  try{
-  const result=await research({GROQ_API_KEY:"test",BRAVE_SEARCH_API_KEY:"test"},{query:"research privacy",fulltext:true});
+  const result=await research({MANAGPT_INFERENCE_BASE_URL:"https://gpu.example.com/v1",MANAGPT_INFERENCE_API_KEY:"test",BRAVE_SEARCH_API_KEY:"test"},{query:"research privacy",fulltext:true});
   assert.equal(pages,1);
   assert.equal(result.fulltext_count,1);
   assert.equal(result.sources[1].page_text,undefined);

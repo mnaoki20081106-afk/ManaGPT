@@ -1,4 +1,5 @@
 import {research} from "./research.js";
+import {inferenceReady,requestInference} from "./inference.js";
 import {conversations} from "./chat_sessions.js";
 import {repairFailedPR} from "./repair.js";
 import {agentAction,agentStatus,gh} from "./agent.js";
@@ -8,7 +9,7 @@ const headers = {"content-type":"application/json; charset=utf-8","cache-control
 const json = (data,status=200)=>new Response(JSON.stringify(data),{status,headers});
 export default {
  async scheduled(event,env,ctx){
-  if(!env.DB||!env.GROQ_API_KEY)return;
+  if(!env.DB||!inferenceReady(env))return;
   ctx.waitUntil((async()=>{
    env=await githubEnvironment(env);
    if(!env.GITHUB_TOKEN||!env.GITHUB_REPOSITORY)return;
@@ -37,11 +38,11 @@ export default {
   if(!token || token!==env.MANAGPT_ACCESS_TOKEN) return json({error:"Unauthorized"},401);
   if(url.pathname.startsWith("/api/github/"))return githubSettings(request,env,url);
   if(url.pathname.startsWith("/api/conversations")){
-   if(url.pathname.endsWith("/messages")&&!env.GROQ_API_KEY)return json({error:"Configure GROQ_API_KEY first"},503);
+   if(url.pathname.endsWith("/messages")&&!inferenceReady(env))return json({error:"Configure dedicated Qwen inference endpoint first"},503);
    return conversations(request,env,url);
   }
   if(url.pathname==="/api/research" && request.method==="POST"){
-   if(!env.GROQ_API_KEY)return json({error:"Configure GROQ_API_KEY first"},503);
+   if(!inferenceReady(env))return json({error:"Configure dedicated Qwen inference endpoint first"},503);
    try{return json(await research(env,await request.json()))}
    catch(e){return json({error:String(e.message||e)},400)}
   }
@@ -65,13 +66,13 @@ export default {
    return json({messages:results.reverse()});
   }
   if(url.pathname==="/api/chat" && request.method==="POST"){
-   if(!env.GROQ_API_KEY)return json({error:"Configure GROQ_API_KEY first"},503);
+   if(!inferenceReady(env))return json({error:"Configure dedicated Qwen inference endpoint first"},503);
    let body;try{body=await request.json()}catch{return json({error:"Invalid JSON"},400)}
    const prompt=body.message;
    if(typeof prompt!=="string" || !prompt.trim() || prompt.length>12000)return json({error:"Message must be 1–12000 characters"},400);
    const {results}=await env.DB.prepare("SELECT role,content FROM messages ORDER BY id DESC LIMIT 20").all();
    const messages=[{role:"system",content:"You are manaGPT. Respond accurately in the user's language."},...results.reverse(),{role:"user",content:prompt}];
-   const resp=await fetch("https://api.groq.com/openai/v1/chat/completions",{method:"POST",headers:{"Authorization":"Bearer "+env.GROQ_API_KEY,"Content-Type":"application/json"},body:JSON.stringify({model:env.MANAGPT_MODEL||"qwen/qwen3.8-27b",messages,stream:false})});
+   const resp=await requestInference(env,{messages,stream:false});
    if(!resp.ok)return json({error:"Inference provider unavailable",status:resp.status},502);
    const data=await resp.json();
    const answer=data.choices?.[0]?.message?.content;

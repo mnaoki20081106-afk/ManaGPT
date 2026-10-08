@@ -1,101 +1,59 @@
-# manaGPT
+# ManaGPT
 
-自分で動かす **Qwen3.8 ベースのAIチャット**。Ollama を使い、ブラウザとターミナルの両方から利用できます。
+Default text model: **[cooperleong00/Qwen3-8B-Jailbroken](https://huggingface.co/cooperleong00/Qwen3-8B-Jailbroken)**.
 
-- 標準モデルは **`qwen3.8:27b`**。`qwen3:8b` 等にも変更可能
-- チャットのストリーミング表示・思考モード切替
-- SQLite による会話履歴の自動保存（途中で失敗した応答は保存しない）
-- AIの役割とプロジェクト文脈のカスタマイズ
-- OpenAI API `messages` 形式で会話をJSON書き出し（APIへの自動送信はしない）
-- ローカル実行が標準。外部のAPIキーは不要
+ManaGPT has a Cloudflare Workers chat UI (sessions stored in D1), coding PR agent, public-source research and PR repair tools. The Python CLI/Web app is also maintained. All five Cloudflare text inference paths use the same dedicated endpoint config; none silently fall back to another Groq Qwen model.
 
-## 必要な環境
+**Model availability:** The exact Hugging Face repository is model weights, **not a running API**. It currently has no public Hugging Face Inference Provider. A compatible GPU-hosted vLLM (or Hugging Face dedicated Inference Endpoint) serving these exact weights is required. The pre-existing Groq API key cannot serve this model.
 
-- Python 3.11以降
-- [Ollama](https://ollama.com/download)（PCまたは自分で管理するサーバー）
-- `qwen3.8:27b` は約18GBのモデルファイルに加え、推論用のRAM/VRAMが必要です。スペックが厳しければ小さいモデルに切り替えてください。
+## Cloudflare setup
 
-## セットアップ
+The Worker remains a lightweight client; it does not load model weights.
 
-```bash
-# 1. Ollamaをインストールして起動
-ollama pull qwen3.8:27b
+1. Deploy the exact model to an OpenAI-compatible HTTPS endpoint. For example, on a GPU machine with vLLM:
 
-# 2. プロジェクトをインストール
-python -m venv .venv
-source .venv/bin/activate       # Windows: .venv\Scripts\activate
-pip install -e .
+   ```bash
+   vllm serve cooperleong00/Qwen3-8B-Jailbroken \
+     --served-model-name cooperleong00/Qwen3-8B-Jailbroken \
+     --api-key "$INFERENCE_TOKEN" --host 127.0.0.1 --port 8000
+   ```
 
-# 3. ブラウザUIを起動
-managpt web
-# http://127.0.0.1:8000 にアクセス
-```
+   Put an authenticated HTTPS reverse proxy or dedicated managed inference endpoint in front of the server. **Do not expose an unprotected inference server on the public internet.** vLLM's authentication protects /v1 routes but not every endpoint; restrict network access too. The model's BF16 weights and inference runtime require a suitable GPU.
 
-ターミナル版:
+2. Set the following on Cloudflare **Workers & Pages → managpt → Settings → Variables and Secrets**:
+   - `MANAGPT_INFERENCE_BASE_URL=https://YOUR-ENDPOINT/v1` (HTTPS, ending in /v1)
+   - `MANAGPT_INFERENCE_API_KEY` as a **Secret** (matching the endpoint authorization token)
+   - `MANAGPT_ACCESS_TOKEN` as a **Secret** (access to the ManaGPT UI)
+   - `MANAGPT_MODEL=cooperleong00/Qwen3-8B-Jailbroken` (already set in `wrangler.jsonc`)
 
-```bash
-managpt cli
-# または python -m managpt
-```
+3. The Cloudflare deployment workflow also needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in GitHub Actions Secrets. Run [Deploy Cloudflare](.github/workflows/deploy-cloudflare.yml) to deploy.
 
-## モデルと接続先を変える
+4. Optional features: `BRAVE_SEARCH_API_KEY` enables research; configure GitHub integration from the app's settings screen for coding PRs. Image inputs use a **separately configured** `MANAGPT_VISION_MODEL` and `GROQ_API_KEY`. The specified text model does not provide a guaranteed vision interface.
 
-環境変数で指定します。例:
+Without a configured dedicated endpoint, text chat/research return an explicit configuration error instead of using a different model. This is deliberate. The Worker itself is not the GPU server.
+
+For detailed setup, including D1 and GitHub connections, see [SETUP_TUTORIAL_JA.md](SETUP_TUTORIAL_JA.md) and [cloudflare/README.md](cloudflare/README.md).
+
+## Local Python app
+
+Python 3.11+:
 
 ```bash
-export MANAGPT_MODEL=qwen3:8b
-export OLLAMA_HOST=http://127.0.0.1:11434
-managpt web
-```
-
-Windows PowerShell:
-
-```powershell
-$env:MANAGPT_MODEL="qwen3:8b"
+python -m pip install -e '.[dev]'
+export MANAGPT_PROVIDER=openai-compatible
+export MANAGPT_MODEL=cooperleong00/Qwen3-8B-Jailbroken
+export MANAGPT_API_BASE_URL=https://YOUR-ENDPOINT/v1
+export MANAGPT_API_KEY=YOUR_ENDPOINT_TOKEN
 managpt web
 ```
 
-Ollamaが別のマシンで動いているなら、`OLLAMA_HOST` をそのマシンのURLに設定します。**Ollamaのポートをインターネットに直接公開しないでください。** SSHトンネルやVPNで接続する構成を推奨します。
+Open `http://127.0.0.1:8000` or use `managpt cli`. Python app history is stored locally in SQLite; Cloudflare chat history uses D1. Ollama remains available by explicitly selecting `MANAGPT_PROVIDER=ollama` and installing the model you want to use.
 
-詳しい環境変数は [.env.example](.env.example) を参照してください。`.env` は自動読み込みされないので、値をシェルの環境変数として設定してください。
-
-### 人格プロンプト
-
-UTF-8テキストファイルを用意して `MANAGPT_SYSTEM_PROMPT_FILE=/path/to/prompt.txt` を設定すると、既定のシステムプロンプトを置き換えられます。ブラウザUIの「設定」では会話単位で役割・プロジェクト文脈・モデル・思考モードを変更できます。
-
-### CLIコマンド
-
-`/help`, `/think`, `/model <model>`, `/role <text>`, `/context <text>`, `/history`, `/clear`, `/save [path]`, `/load [path]`, `/export [path]`, `/exit`
-
-`/save` で JSON セッションログを保存し、`/load` で読み込めます。`/export` は別のAIに引き継げる `messages` 配列を出力します。
-
-## プライバシーと運用上の注意
-
-- 会話は `MANAGPT_DB` （デフォルト `./managpt.db`）に保存されます。
-- Web UIは**認証なし**のローカル向けです。既定は `127.0.0.1` のみで待ち受けます。公開サーバー運用には認証、HTTPS、アクセス制御が必要です。
-- Ollama本体やモデルはこのリポジトリ・GitHub Actionsではホストされません。GitHubはコードとテストを管理します。常時チャット利用には別途実行環境が必要です。
-- ブラウザはローカルストレージに現在のセッションIDを持ちます。エクスポートファイルには会話本文が入ります。
-
-## テスト
+## Verification
 
 ```bash
-pip install -e '.[dev]'
+node --experimental-default-type=module --test tests/agent.test.mjs tests/integrations.test.mjs tests/inference.test.mjs tests/ui-wiring.test.mjs
 python -m pytest -q
 ```
 
-GitHub Actionsでもpytestを実行します。テスト時にモデルのダウンロードは不要です。
-
-## 開発の元になった機能
-
-従来の `Qwen3-8B` CLIの会話履歴、`/think`、`/clear`、`/context`、`/role`、`/export` 機能を引き継ぎ、Qwen3.8対応・自動履歴保存・ブラウザUIを加えました。
-
-
-## 月額0円の外部推論 (Groq)
-
-1. [Groq Console](https://console.groq.com/keys) で無料APIキーを発行。
-2. 環境変数 `MANAGPT_API_KEY` に設定。
-3. `managpt web` を起動。
-
-標準接続は `MANAGPT_PROVIDER=groq`、`MANAGPT_MODEL=qwen/qwen3.8-27b`、`MANAGPT_API_BASE_URL=https://api.groq.com/openai/v1`。無料枠のレート制限に達した場合は429エラーが返ります。自動的な有料枠移行は行いません。既存のOllama利用時は `MANAGPT_PROVIDER=ollama` を指定してください。OpenRouterの無料モデルにも設定変更で対応します。
-
-**注意:** Web UIは認証なしでローカル向けです。GitHub Actionsはテストのみで常時稼働サーバーではありません。スマホからのアクセスには認証付きのホスティングが別途必要です。
+These are offline tests using mocked inference responses. An **end-to-end test with the actual model** additionally requires a deployed endpoint and credentials. Never commit API keys, model server credentials or exported conversation logs to Git.

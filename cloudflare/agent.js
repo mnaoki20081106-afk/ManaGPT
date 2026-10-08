@@ -1,5 +1,6 @@
 // GitHub development agent: propose edits on a branch, never push directly to main.
 import {buildAttachments} from "./attachments.js";
+import {requestInference} from "./inference.js";
 export const gh = async (env,path,options={}) => {
   const response=await fetch("https://api.github.com"+path,{...options,headers:{
     "Accept":"application/vnd.github+json","Authorization":"Bearer "+env.GITHUB_TOKEN,
@@ -20,7 +21,7 @@ export async function agentAction(env,body){
  // Reject a stale UI selection rather than silently sending a PR to another repository.
  if(body.repository!==undefined&&body.repository!==repo)throw Error("Selected repository changed; refresh the coding screen");
  const attachments=buildAttachments(body.task,body.attachments||[]);
- if(attachments.images.length&&!env.MANAGPT_VISION_MODEL)throw Error("Configure MANAGPT_VISION_MODEL before attaching images in coding mode");
+ if(attachments.images.length&&(!env.MANAGPT_VISION_MODEL||!env.GROQ_API_KEY))throw Error("Configure MANAGPT_VISION_MODEL and GROQ_API_KEY before attaching images in coding mode");
  const root="/repos/"+repo;
  const info=await gh(env,root);
  const base=info.default_branch;
@@ -60,9 +61,7 @@ export async function agentAction(env,body){
   context_limit:"Only selected repository files have full contents. Attachments are reference-only; do not invent other files."
  });
  const userContent=attachments.images.length?[{type:"text",text:prompt},...attachments.images]:prompt;
- const response=await fetch("https://api.groq.com/openai/v1/chat/completions",{
-   method:"POST",headers:{"Authorization":"Bearer "+env.GROQ_API_KEY,"Content-Type":"application/json"},
-   body:JSON.stringify({model:attachments.images.length?env.MANAGPT_VISION_MODEL:(env.MANAGPT_MODEL||"qwen/qwen3.8-27b"),messages:[{role:"system",content:instructions},{role:"user",content:userContent}],temperature:0.2,stream:false})});
+ const response=await requestInference(env,{messages:[{role:"system",content:instructions},{role:"user",content:userContent}],temperature:0.2,stream:false},{vision:attachments.images.length>0});
  if(!response.ok)throw Error("AI generation failed ("+response.status+")");
  const ai=await response.json();const raw=ai.choices?.[0]?.message?.content||"";
  let proposal;try{proposal=JSON.parse(raw)}catch{throw Error("AI returned invalid edit JSON")}

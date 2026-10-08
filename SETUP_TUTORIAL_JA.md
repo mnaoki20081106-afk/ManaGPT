@@ -1,11 +1,11 @@
 # manaGPT 初回セットアップ・完成チェックリスト（iPhone対応）
 
-最終確認：2026-10-08。**CI（Tests / Agent Quality Gate）は成功**していますが、**Cloudflareへの自動デプロイは失敗**しています。コードのCI成功と本番動作は別です。
+最終確認：2026-10-08。**CI（Tests / Agent Quality Gate）は成功**していますが、**Cloudflareへの自動デプロイの旧チェック記録では失敗**しています。コードのCI成功と本番動作は別です。
 
 ## まず用意するもの
 - GitHubアカウント（このリポジトリを編集できる権限）
 - Cloudflareアカウント（無料枠から開始可能）
-- GroqアカウントとAPIキー
+- 指定モデルを動かすGPU推論サーバー（vLLMなど）と、そのHTTPSエンドポイント
 - Webリサーチを使うなら Brave Search APIキー
 - GitHub開発エージェントを使うなら GitHub Personal Access Token（対象リポジトリに限定）
 - iPhoneのSafari（Cloudflare / GitHubのデスクトップ表示に切り替えると設定しやすい場合があります）
@@ -40,13 +40,17 @@
 4. Deploy Workerの成功後、CloudflareのWorkers設定で `DB` バインディングを確認してください。
 5. 会話用テーブルは、初回APIアクセス時にコード側で作成されます。
 
-## STEP 5 — GroqのAPIキーを登録
-1. https://console.groq.com/keys でAPIキーを発行。
-2. Cloudflareの **Workers & Pages → managpt → Settings → Variables and Secrets** を開く。
-3. `GROQ_API_KEY` を **Secret** として追加。
-4. `MANAGPT_ACCESS_TOKEN` を **Secret** として追加。32文字以上の推測されにくいランダムな文字列を推奨。
-5. 設定を保存・適用する。
-6. モデル名は `wrangler.jsonc` の `MANAGPT_MODEL` で指定。現在の値 `qwen/qwen3.8-27b` は利用可能か未確認。Groqのモデル一覧で実在するモデルIDを確認して必要なら変更する。会話機能の新しいストリーミング処理には `qwen/qwen3-32b` のフォールバック指定がありますが、設定変数が優先されます。
+## STEP 5 — 専用のQwen3-8B-Jailbroken推論エンドポイントを登録
+1. [cooperleong00/Qwen3-8B-Jailbroken](https://huggingface.co/cooperleong00/Qwen3-8B-Jailbroken) の重みを、GPUマシン上のOpenAI互換サーバー（vLLMなど）で起動します。これはモデルのダウンロードページであり、実行中APIではありません。指定モデルはHugging Faceの公開Inference Providerから提供されていません。
+2. エンドポイントが外部からHTTPSで利用できるようにし、認証とアクセス制御を設定します（URLは `https://YOUR-ENDPOINT/v1` の形式）。
+3. Cloudflareの **Workers & Pages → managpt → Settings → Variables and Secrets** で次を設定します。
+   - `MANAGPT_INFERENCE_BASE_URL`：HTTPSのモデルAPIベースURL（`/v1`で終わる）
+   - `MANAGPT_INFERENCE_API_KEY`：APIトークン（**Secret**）
+   - `MANAGPT_ACCESS_TOKEN`：アプリログイン用の長いトークン（**Secret**）
+4. `MANAGPT_MODEL` は `wrangler.jsonc` で `cooperleong00/Qwen3-8B-Jailbroken` に設定済み。推論サーバーでも同じモデルIDを使うよう `--served-model-name` を指定します。
+5. `GROQ_API_KEY` は**通常のテキスト生成には使用しません**。画像処理専用の `MANAGPT_VISION_MODEL` を使う場合のみ、その画像対応プロバイダー用に別途設定します。
+
+> **費用と動作について：** Cloudflare Workers側だけではこの8Bモデルを推論できません。GPUホスティングには料金が発生する場合があります。エンドポイント未設定時は、別モデルに勝手に切り替えず設定エラーを表示します。実際のモデル応答はサーバーを稼働させてから検証してください。
 
 ## STEP 6 — Safariで接続
 1. Cloudflareで `managpt` Workerの `*.workers.dev` URLを確認。
@@ -84,7 +88,7 @@
 - [x] 直近のNodeテストとAgent Quality Gateが成功
 - [ ] Cloudflareの有効なAPI TokenへGitHub Secretを更新しデプロイを成功させる
 - [x] CIでD1の検出・作成・バインディング設定を自動化（本番未検証）
-- [ ] GroqモデルIDとAPIキーで本番チャットを検証する
+- [ ] Qwen3-8B-Jailbroken専用エンドポイントと認証をCloudflareに設定し、本番チャットを検証する
 - [ ] iPhone Safariで複数チャット・履歴・ストリーミングのE2E確認
 - [ ] Webリサーチの本番APIキー・料金・品質・SSRF対策を確認
 - [ ] Torを安全に隔離した環境で起動し、漏洩テストを行う
@@ -97,9 +101,9 @@
 - **GitHub Actionsが失敗**：Actionsログの最初のエラーを確認。Secrets未登録、D1設定、API Token権限を順に点検。
 - **401 Unauthorized**：アクセス用トークンを確認。
 - **503**：CloudflareのSecretまたはDBバインディング不足。
-- **502**：Groq APIキー、モデルID、レート制限を確認。
+- **502**：専用GPU推論エンドポイント、認証トークン、モデルロード、API応答の状態を確認。
 - **会話が保存されない**：D1の `DB` バインディングとWorkerログを確認。
-- **ストリーミングが止まる**：Groqのレスポンス、Workerログ、ネットワークを確認。中断した応答は保存されない場合があります。
+- **ストリーミングが止まる**：専用Qwen推論サーバーのレスポンス、Workerログ、ネットワークを確認。中断した応答は保存されない場合があります。
 
 ## 料金の目安
-無料枠から開始できますが、Cloudflare Workers/D1・Groq・Brave Searchにはそれぞれ利用制限があります。料金体系は変更されるため、登録時に各公式ダッシュボードで最新条件を確認してください。Torサイドカーを常時稼働させる場合は別途ホスティング費用が発生する可能性があります。
+無料枠から開始できますが、Cloudflare Workers/D1・Brave Searchにはそれぞれ利用制限があります。指定モデルをホストするGPUには別途費用がかかることがあります。料金体系は変更されるため、最新条件を確認してください。Torサイドカーも別途ホスティングが必要になる場合があります。
