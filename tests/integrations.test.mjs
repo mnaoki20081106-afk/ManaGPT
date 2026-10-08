@@ -90,7 +90,7 @@ test("github connect, repo listing and selection, disconnect, and env override",
 });
 test("chat PDF-extracted text reaches the model and streams into saved conversation",async()=>{
  const original=globalThis.fetch,{db,state}=mockDb();let upstream;
- const env={DB:db,GROQ_API_KEY:"dummy",MANAGPT_MODEL:"test-model"};
+ const env={DB:db,MANAGPT_INFERENCE_BASE_URL:"https://gpu.example.com/v1",MANAGPT_INFERENCE_API_KEY:"dummy",MANAGPT_MODEL:"test-model"};
  globalThis.fetch=async(_url,options)=>{
   upstream=JSON.parse(options.body);
   const s='data: {"choices":[{"delta":{"content":"読みました"}}]}\n\ndata: [DONE]\n\n';
@@ -123,7 +123,7 @@ test("coding-mode attachments reach model and selected repository is used in PR 
  globalThis.fetch=async (url,options={})=>{
   const u=String(url),method=options.method||"GET";
   seen.push({url:u,method,body:options.body});
-  const data=u.includes("api.groq.com")?
+  const data=u.includes("gpu.example.com")?
    {choices:[{message:{content:JSON.stringify({edits:[{path:"src/index.js",content:"export const answer = 2;\n"}]})}}]}:
    u.endsWith("/repos/owner/demo")?{default_branch:"main"}:
    u.endsWith("/git/ref/heads/main")?{object:{sha:"commit-sha"}}:
@@ -137,12 +137,12 @@ test("coding-mode attachments reach model and selected repository is used in PR 
   return new Response(JSON.stringify(data),{status:data.message?404:200});
  };
  try{
-  const env={GITHUB_TOKEN:"fake",GITHUB_REPOSITORY:"owner/demo",GROQ_API_KEY:"fake",MANAGPT_MODEL:"test-model"};
+  const env={GITHUB_TOKEN:"fake",GITHUB_REPOSITORY:"owner/demo",MANAGPT_INFERENCE_BASE_URL:"https://gpu.example.com/v1",MANAGPT_INFERENCE_API_KEY:"fake",MANAGPT_MODEL:"test-model"};
   const result=await agentAction(env,{task:"Fix the index output",repository:"owner/demo",attachments:[
    {name:"error.log",kind:"text",text:"Expected answer to be 2, received 1"}
   ]});
   assert.equal(result.pr_number,7);
-  const inference=JSON.parse(seen.find(x=>x.url.includes("api.groq.com")).body);
+  const inference=JSON.parse(seen.find(x=>x.url.includes("gpu.example.com")).body);
   assert.match(inference.messages[1].content,/Expected answer to be 2/);
   assert.match(inference.messages[1].content,/error.log/);
   assert.equal(inference.model,"test-model");
@@ -171,7 +171,7 @@ test("coding images use a vision-capable model and multimodal request",async()=>
   return new Response(JSON.stringify(data),{status:data.message?404:200});
  };
  try{
-  await assert.rejects(agentAction({GITHUB_TOKEN:"fake",GITHUB_REPOSITORY:"owner/demo",GROQ_API_KEY:"fake",MANAGPT_VISION_MODEL:"vision-test"},{
+  await assert.rejects(agentAction({GITHUB_TOKEN:"fake",GITHUB_REPOSITORY:"owner/demo",GROQ_API_KEY:"fake",MANAGPT_VISION_MODEL:"vision-test",GROQ_API_KEY:"fake"},{
    task:"Fix screenshot layout",attachments:[{name:"screenshot.png",kind:"image",mime:"image/png",data:png}]
   }),/insufficient context/);
   assert.equal(sent.model,"vision-test");
