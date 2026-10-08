@@ -7,7 +7,7 @@ const headers = {"content-type":"application/json; charset=utf-8","cache-control
 const json = (data,status=200)=>new Response(JSON.stringify(data),{status,headers});
 export default {
  async scheduled(event,env,ctx){
-  if(!env.DB||!env.GITHUB_TOKEN||!env.GROQ_API_KEY||!env.GITHUB_REPOSITORY)return;
+  if(!env.DB||!env.GITHUB_TOKEN||(!env.GROQ_API_KEY&&!env.AGENT_API_KEY)||!env.GITHUB_REPOSITORY)return;
   ctx.waitUntil((async()=>{
    await env.DB.prepare("CREATE TABLE IF NOT EXISTS agent_repairs (pr INTEGER PRIMARY KEY, head_sha TEXT NOT NULL, checked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
    const root="/repos/"+env.GITHUB_REPOSITORY;
