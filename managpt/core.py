@@ -5,13 +5,21 @@ from datetime import datetime, timezone
 
 from .config import Config
 from .store import Store
-from .ollama_api import OllamaProvider, Part\nfrom .provider import OpenAICompatibleProvider
+from .ollama_api import OllamaProvider, Part
+from .provider import OpenAICompatibleProvider
 
 
 class Agent:
     def __init__(self, config: Config, store: Store, provider: OllamaProvider | None = None):
         self.config, self.store = config, store
-        if provider is not None:\n            self.provider = provider\n        elif config.provider == "ollama":\n            self.provider = OllamaProvider(config.ollama_host, config.num_ctx, config.temperature)\n        elif config.provider in ("groq", "openrouter", "openai-compatible"):\n            self.provider = OpenAICompatibleProvider(config.api_base_url, config.api_key, config.temperature)\n        else:\n            raise ValueError(f"Unknown inference provider: {config.provider}")
+        if provider is not None:
+            self.provider = provider
+        elif config.provider == "ollama":
+            self.provider = OllamaProvider(config.ollama_host, config.num_ctx, config.temperature)
+        elif config.provider in ("groq", "openrouter", "openai-compatible"):
+            self.provider = OpenAICompatibleProvider(config.api_base_url, config.api_key, config.temperature)
+        else:
+            raise ValueError(f"Unknown inference provider: {config.provider}")
 
     def system_text(self, session: dict) -> str:
         return (self.config.system_prompt + "\n\n"
