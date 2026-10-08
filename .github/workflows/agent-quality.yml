@@ -22,4 +22,4 @@ jobs:
           node --check /tmp/managpt-worker.mjs
       - name: Validate project config
         run: |
-          node -e "const c=require('./wrangler.jsonc');if(!c.main||!c.d1_databases?.length)process.exit(1)"
+          node -e "const c=JSON.parse(require('fs').readFileSync('wrangler.jsonc','utf8'));if(!c.main||!c.d1_databases?.length)process.exit(1)"
