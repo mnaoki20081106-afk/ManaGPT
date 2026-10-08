@@ -20,7 +20,8 @@ export async function agentAction(env,body){
  const info=await gh(env,root);
  const base=info.default_branch;
  const head=await gh(env,root+"/git/ref/heads/"+encodeURIComponent(base));
- const tree=await gh(env,root+"/git/trees/"+head.object.sha+"?recursive=1");
+ const baseCommit=await gh(env,root+"/git/commits/"+head.object.sha);
+ const tree=await gh(env,root+"/git/trees/"+baseCommit.tree.sha+"?recursive=1");
  const files=(tree.tree||[]).filter(f=>f.type==="blob"&&f.size<25000&&safePath(f.path)&&/\.(py|js|ts|tsx|jsx|json|md|html|css|yml|yaml)$/.test(f.path));
  if(tree.truncated)throw Error("Repository tree was truncated; refusing to edit with incomplete context");
  const terms=(body.task.toLowerCase().match(/[a-z][a-z0-9_.-]{2,}/g)||[]).slice(0,25);
