@@ -13,6 +13,7 @@
       "database_name": "managpt"
     }
   ],
+  "triggers": {"crons": ["*/15 * * * *"]},
   "vars": {
     "MANAGPT_MODEL": "qwen/qwen3.8-27b"
   }
