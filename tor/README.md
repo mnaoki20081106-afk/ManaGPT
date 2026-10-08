@@ -11,6 +11,7 @@ docker run --rm --name managpt-onion --network bridge --read-only \
   --tmpfs /home/onion/tor-data:uid=10001,gid=10001 \
   --tmpfs /tmp:uid=10001,gid=10001 \
   -e TOR_RESEARCH_TOKEN="$TOR_RESEARCH_TOKEN" \
+  -e TOR_RESEARCH_BIND=0.0.0.0 \
   -p 127.0.0.1:8765:8765 managpt-onion
 ```
 
