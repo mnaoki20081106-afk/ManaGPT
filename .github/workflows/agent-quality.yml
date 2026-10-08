@@ -19,11 +19,17 @@ jobs:
           cp cloudflare/worker.js /tmp/managpt-worker.mjs
           cp cloudflare/research.js /tmp/managpt-research.mjs
           cp cloudflare/chat_sessions.js /tmp/managpt-chat-sessions.mjs
+          cp cloudflare/attachments.js /tmp/managpt-attachments.mjs
+          cp cloudflare/github_settings.js /tmp/managpt-github-settings.mjs
+          cp cloudflare/public/extras.js /tmp/managpt-extras.mjs
           node --check /tmp/managpt-agent.mjs
           node --check /tmp/managpt-repair.mjs
           node --check /tmp/managpt-worker.mjs
           node --check /tmp/managpt-research.mjs
           node --check /tmp/managpt-chat-sessions.mjs
+          node --check /tmp/managpt-attachments.mjs
+          node --check /tmp/managpt-github-settings.mjs
+          node --check /tmp/managpt-extras.mjs
       - name: Agent regression tests
         run: node --experimental-default-type=module --test tests/agent.test.mjs
       - name: Cloudflare deployment preflight tests
