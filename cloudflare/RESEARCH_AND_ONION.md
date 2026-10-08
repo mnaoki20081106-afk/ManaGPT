@@ -3,8 +3,8 @@
 ## Available now: public web research
 Authenticated POST /api/research with {"query":"..."}. The mobile interface now has a research panel.
 Requires BRAVE_SEARCH_API_KEY stored as a Cloudflare Worker Secret and GROQ_API_KEY.
-Searches up to eight HTTPS web results and returns source URLs, snippets and an evidence-grounded answer.
-This is snippet-based research, not independent fact verification or full-page analysis.
+Searches up to eight HTTPS web results per query; optional deep mode performs two queries and deduplicates up to twelve sources and returns source URLs, snippets and an evidence-grounded answer.
+This is snippet-based research, not independent fact verification or full-page analysis. The system validates cited source IDs but cannot verify whether a cited snippet actually supports a generated claim.
 Brave search API usage may incur costs beyond provider free credits.
 
 ## Onion services: safe architecture, not deployed
