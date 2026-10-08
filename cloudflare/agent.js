@@ -1,5 +1,5 @@
 // GitHub development agent: propose edits on a branch, never push directly to main.
-const gh = async (env,path,options={}) => {
+export const gh = async (env,path,options={}) => {
   const response=await fetch("https://api.github.com"+path,{...options,headers:{
     "Accept":"application/vnd.github+json","Authorization":"Bearer "+env.GITHUB_TOKEN,
     "X-GitHub-Api-Version":"2022-11-28","User-Agent":"manaGPT-agent",
@@ -8,8 +8,8 @@ const gh = async (env,path,options={}) => {
   if(!response.ok)throw Error("GitHub "+response.status+": "+(data.message||"request failed"));
   return data;
 };
-const encode=s=>btoa(Array.from(new TextEncoder().encode(s),b=>String.fromCharCode(b)).join(""));
-const safePath=p=>typeof p==="string" && p.length<200 && !p.startsWith("/") &&
+export const encode=s=>btoa(Array.from(new TextEncoder().encode(s),b=>String.fromCharCode(b)).join(""));
+export const safePath=p=>typeof p==="string" && p.length<200 && !p.startsWith("/") &&
  !p.split("/").some(x=>x===".."||x===".") && !p.startsWith(".github/workflows/") &&
  !/(^|\/)(\.env|\.git|node_modules)(\/|$)/.test(p);
 export async function agentAction(env,body){
