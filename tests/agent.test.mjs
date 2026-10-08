@@ -42,7 +42,7 @@ test("missing CI checks are not a pass",async()=>{
 
 test("research requires credentials and rejects short questions",async()=>{
  await assert.rejects(research({}, {query:"hi"}),/3/);
- await assert.rejects(research({}, {query:"privacy research"}),/GROQ_API_KEY/);
+ await assert.rejects(research({}, {query:"privacy research"}),/inference endpoint/);
 });
 test("research preserves citations and filters unsafe search links",async()=>{
  const original=globalThis.fetch;
@@ -57,7 +57,7 @@ test("research preserves citations and filters unsafe search links",async()=>{
   return new Response(JSON.stringify({choices:[{message:{content:"Answer [1]"}}]}),{status:200});
  };
  try{
-  const result=await research({GROQ_API_KEY:"test",BRAVE_SEARCH_API_KEY:"test"}, {query:"privacy research"});
+  const result=await research({MANAGPT_INFERENCE_BASE_URL:"https://gpu.example.com/v1",MANAGPT_INFERENCE_API_KEY:"test",BRAVE_SEARCH_API_KEY:"test"}, {query:"privacy research"});
   assert.equal(requests,2);
   assert.equal(result.sources.length,1);
   assert.equal(result.sources[0].url,"https://example.org/guide");
